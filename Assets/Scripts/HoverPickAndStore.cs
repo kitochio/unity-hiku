@@ -21,6 +21,7 @@ public class HoverPickAndStore : MonoBehaviour
     [Header("Store settings")]
     [Range(1, 20)]
     public int capacity = 5;
+    public IReadOnlyCollection<GameObject> SavedObjects => _queue;
 
     // 内部
     private readonly Queue<GameObject> _queue = new Queue<GameObject>();
@@ -28,7 +29,7 @@ public class HoverPickAndStore : MonoBehaviour
 
     const float EPS = 1e-7f;
 
-    private readonly List<Vector2> _pts = new(5); // 現在の点列（順番通り：p0, p1, ...）
+    private readonly List<Vector2> _pts = new(); // 現在の点列（順番通り：p0, p1, ...）
 
     void Update()
     {
@@ -144,13 +145,10 @@ public class HoverPickAndStore : MonoBehaviour
         }
     }
 
-    /// <summary>次の候補点 q を置けるか？（交差なし＆最大制約）</summary>
+    /// <summary>次の候補点 q を置けるか？（交差なし）</summary>
     private bool CanPlaceNextPoint(Vector2 q)
     {
         FillPointsFromQueue();
-        // 最大点数チェック
-        if (_pts.Count >= capacity) return false;
-
         // 0～1点なら交差しようがない
         if (_pts.Count < 2) return true;
 
