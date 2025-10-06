@@ -167,4 +167,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78aa7e30a8f16f74f83381de1074134c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  restitution: 10
+  acceleration: 100
+  maxAcceleration: 20
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  applySymmetrically: 1

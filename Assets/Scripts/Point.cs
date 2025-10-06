@@ -1,53 +1,38 @@
 using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(Collider2D))]
 public class Point : MonoBehaviour
 {
-    [Tooltip("反発係数 e。2 にすると法線成分の速さが2倍で反発（超弾性）")]
-    [Range(0f, 10f)] public float restitution = 2f;
+    public float acceleration = 8f; // 毎FixedUpdateで付与したい“加速度”の大きさ
+    public float maxAcceleration = 20f; // 1回あたりの上限（暴走・震え防止）
+    public LayerMask targetLayers = ~0; // 反発対象のレイヤー（既定は全レイヤー）
+    public bool applySymmetrically = true; // 片側のスクリプトから相手にも同量を与えるか
 
-    void OnCollisionEnter2D(Collision2D col)
+    Rigidbody2D rb;
+
+    void Awake() => rb = GetComponent<Rigidbody2D>();
+
+    void OnCollisionStay2D(Collision2D col)
     {
-        //if (!ShouldApply(col)) return;
-        ApplyImpulse(col);
-    }
+        var otherRb = col.rigidbody; // 衝突相手のRigidbody
+        if (otherRb == rb) return; // 自己参照防止
+        if (((1 << col.gameObject.layer) & targetLayers) == 0) return;
 
-    bool ShouldApply(Collision2D col)
-    {
-        var rbA = GetComponent<Rigidbody2D>();
-        var rbB = col.rigidbody;
+        // 反発方向の決定：質量中心同士のベクトル（自分→相手を逆にとる）
+        Vector2 otherCenter = otherRb ? (Vector2)otherRb.worldCenterOfMass : col.collider.bounds.center;
+        Vector2 dir = ((Vector2)rb.worldCenterOfMass - otherCenter).normalized;
+        if (dir.sqrMagnitude < 1e-6f) return;
 
-        bool aDyn = rbA && rbA.bodyType == RigidbodyType2D.Dynamic;
-        bool bDyn = rbB && rbB.bodyType == RigidbodyType2D.Dynamic;
-        if (!aDyn && !bDyn) return false;
-        if (aDyn && !bDyn) return true;
-        if (!aDyn && bDyn) return false;
+        // 2Dには Acceleration モードがないので「F = m * a」で力に変換
+        Vector2 a = Vector2.ClampMagnitude(dir * acceleration, maxAcceleration);
+        Vector2 f = a * rb.mass;
+        rb.AddForce(f, ForceMode2D.Force);
 
-        return rbA.GetInstanceID() < rbB.GetInstanceID();
-    }
-
-    void ApplyImpulse(Collision2D col)
-    {
-        var rbA = GetComponent<Rigidbody2D>();
-        var rbB = col.rigidbody;
-
-        Vector2 n = col.GetContact(0).normal;
-
-        Vector2 vA = rbA ? rbA.linearVelocity : Vector2.zero;
-        Vector2 vB = rbB ? rbB.linearVelocity : Vector2.zero;
-
-        float vrn = Vector2.Dot(vA - vB, n);
-        if (vrn >= 0f) return;
-
-        float invMassA = (rbA && rbA.bodyType == RigidbodyType2D.Dynamic) ? 1f / rbA.mass : 0f;
-        float invMassB = (rbB && rbB.bodyType == RigidbodyType2D.Dynamic) ? 1f / rbB.mass : 0f;
-        float denom = invMassA + invMassB;
-        if (denom <= 0f) return;
-
-        float J = -(1f + restitution) * vrn / denom;
-        Vector2 impulse = J * n;
-
-        if (invMassA > 0f) rbA.linearVelocity = vA + impulse * invMassA;
-        if (invMassB > 0f) rbB.linearVelocity = vB - impulse * invMassB;
+        if (applySymmetrically && otherRb && GetInstanceID() < otherRb.GetInstanceID())
+        {
+            Vector2 fOther = (-a) * otherRb.mass;
+            otherRb.AddForce(fOther, ForceMode2D.Force);
+        }
     }
 }
