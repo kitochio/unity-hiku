@@ -1425,6 +1425,8 @@ MonoBehaviour:
   store: {fileID: 1559890004}
   force2D: 1
   z2D: 0
+  gap: 0.3
+  useGappedSegments: 1
 --- !u!120 &1239024579
 LineRenderer:
   serializedVersion: 2
