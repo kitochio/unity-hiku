@@ -1161,10 +1161,58 @@ MonoBehaviour:
   totalTime: 60
   onGameStarted:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1912075075}
+        m_TargetAssemblyTypeName: RowSpawner2D, Assembly-CSharp
+        m_MethodName: StartLoop
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 1559890004}
+        m_TargetAssemblyTypeName: HoverPickAndStore, Assembly-CSharp
+        m_MethodName: EnablePicking
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   onGameEnded:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1912075075}
+        m_TargetAssemblyTypeName: RowSpawner2D, Assembly-CSharp
+        m_MethodName: StopLoop
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 1559890004}
+        m_TargetAssemblyTypeName: HoverPickAndStore, Assembly-CSharp
+        m_MethodName: DisablePicking
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!4 &836224203
 Transform:
   m_ObjectHideFlags: 0
@@ -1425,7 +1473,7 @@ MonoBehaviour:
   store: {fileID: 1559890004}
   force2D: 1
   z2D: 0
-  gap: 0.3
+  gap: 0.4
   useGappedSegments: 1
   enableCollision: 1
   colliderThickness: 0.05
@@ -1589,6 +1637,7 @@ MonoBehaviour:
     m_Bits: 4294967295
   maxDistance3D: 100
   capacity: 10
+  pickingEnabled: 0
 --- !u!4 &1559890005
 Transform:
   m_ObjectHideFlags: 0
@@ -2053,7 +2102,7 @@ MonoBehaviour:
   spawnProbability: 0.5
   useRandomSpawn: 1
   interval: 1.5
-  playOnStart: 1
+  playOnStart: 0
   randomSmallJitter: 0
 --- !u!4 &1912075076
 Transform:
