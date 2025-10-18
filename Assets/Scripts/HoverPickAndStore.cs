@@ -23,6 +23,9 @@ public class HoverPickAndStore : MonoBehaviour
     public int capacity = 5;
     public IReadOnlyCollection<GameObject> SavedObjects => _queue;
 
+    [Header("Runtime control")]
+    [SerializeField] private bool pickingEnabled = true;
+
     // 内部
     private readonly Queue<GameObject> _queue = new Queue<GameObject>();
     private readonly HashSet<int> _ids = new HashSet<int>(); // 重複防止
@@ -38,6 +41,9 @@ public class HoverPickAndStore : MonoBehaviour
 
         // 保存中に壊れた（Destroy）参照を掃除
         CleanupDead();
+
+        // Respect enable/disable flag
+        if (!pickingEnabled) return;
 
         // マウス位置からヒット判定
         var screen = Mouse.current.position.ReadValue();
@@ -213,5 +219,10 @@ public class HoverPickAndStore : MonoBehaviour
         return p.x >= Mathf.Min(a.x, b.x) - EPS && p.x <= Mathf.Max(a.x, b.x) + EPS &&
                p.y >= Mathf.Min(a.y, b.y) - EPS && p.y <= Mathf.Max(a.y, b.y) + EPS;
     }
+
+    // Public API to control picking from GameDirector etc.
+    public void SetPickingEnabled(bool enabled) => pickingEnabled = enabled;
+    public void EnablePicking() => SetPickingEnabled(true);
+    public void DisablePicking() => SetPickingEnabled(false);
 
 }
