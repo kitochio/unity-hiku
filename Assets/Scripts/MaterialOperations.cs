@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
-public class BlinkFadeBeforeDestroy : MonoBehaviour
+public class MaterialOperations : MonoBehaviour
 {
     [SerializeField] float fadeDuration = 0.5f; // フェード時間
     [SerializeField] float blinkHz = 8f;        // 点滅周波数(Hz)
@@ -60,6 +60,26 @@ public class BlinkFadeBeforeDestroy : MonoBehaviour
         }
     }
 
+    // 外部からエミッションカラーを設定する
+    public void SetEmissionColor(Color newEmissionColor)
+    {
+        if (!selfRenderer) selfRenderer = GetComponent<SpriteRenderer>();
+        var mat = selfRenderer ? selfRenderer.sharedMaterial : null;
+        if (!(mat != null && mat.shader != null && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty(PropEmissionColor)))
+            return;
+
+        if (block == null) block = new MaterialPropertyBlock();
+
+        // ベース情報を更新（フェード/点滅計算用）
+        baseEmissionColor = newEmissionColor;
+        baseIntensity = Mathf.Max(Mathf.Max(newEmissionColor.r, newEmissionColor.g), newEmissionColor.b);
+        unitEmissionColor = baseIntensity > 0f ? (newEmissionColor / Mathf.Max(baseIntensity, 1e-6f)) : newEmissionColor;
+
+        // 即時適用
+        block.SetColor(PropEmissionColor, newEmissionColor);
+        selfRenderer.SetPropertyBlock(block);
+    }
+
     void OnDisable()
     {
         // 無効化時に Emission を元に戻す
@@ -70,4 +90,3 @@ public class BlinkFadeBeforeDestroy : MonoBehaviour
         selfRenderer.SetPropertyBlock(b);
     }
 }
-

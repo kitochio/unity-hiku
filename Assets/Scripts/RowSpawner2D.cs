@@ -128,8 +128,8 @@ public class RowSpawner2D : MonoBehaviour
 
             if (lifeTime > 0f)
             {
-                var fx = go.GetComponent<BlinkFadeBeforeDestroy>();
-                if (!fx) fx = go.AddComponent<BlinkFadeBeforeDestroy>();
+                var fx = go.GetComponent<MaterialOperations>();
+                if (!fx) fx = go.AddComponent<MaterialOperations>();
                 fx.Begin(lifeTime);
                 Destroy(go, lifeTime);
             } 
