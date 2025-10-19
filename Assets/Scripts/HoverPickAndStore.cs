@@ -25,6 +25,9 @@ public class HoverPickAndStore : MonoBehaviour
 
     [Header("Runtime control")]
     [SerializeField] private bool pickingEnabled = true;
+    [SerializeField, Tooltip("Optional. Auto-found if unset.")]
+    private GameDirector director;
+    private GameDirector _attachedDirector;
 
     // 内部
     private readonly Queue<GameObject> _queue = new Queue<GameObject>();
@@ -220,9 +223,55 @@ public class HoverPickAndStore : MonoBehaviour
                p.y >= Mathf.Min(a.y, b.y) - EPS && p.y <= Mathf.Max(a.y, b.y) + EPS;
     }
 
-    // Public API to control picking from GameDirector etc.
-    public void SetPickingEnabled(bool enabled) => pickingEnabled = enabled;
-    public void EnablePicking() => SetPickingEnabled(true);
-    public void DisablePicking() => SetPickingEnabled(false);
+    // Internal control for picking
+    private void SetPickingEnabled(bool enabled) => pickingEnabled = enabled;
+    private void EnablePicking() => SetPickingEnabled(true);
+    private void DisablePicking() => SetPickingEnabled(false);
+
+    void OnEnable()
+    {
+        AttachDirector();
+        if (_attachedDirector != null)
+        {
+            SetPickingEnabled(_attachedDirector.State == GameDirector.GameState.Playing);
+        }
+    }
+
+    void OnDisable()
+    {
+        DetachDirector();
+    }
+
+    void AttachDirector()
+    {
+        if (director == null)
+        {
+            director = FindObjectOfType<GameDirector>();
+        }
+
+        if (_attachedDirector == director && _attachedDirector != null)
+        {
+            return; // already attached to the same instance
+        }
+
+        DetachDirector();
+
+        if (director != null)
+        {
+            director.GameStarted += EnablePicking;
+            director.GameEnded += DisablePicking;
+            _attachedDirector = director;
+        }
+    }
+
+    void DetachDirector()
+    {
+        if (_attachedDirector != null)
+        {
+            _attachedDirector.GameStarted -= EnablePicking;
+            _attachedDirector.GameEnded -= DisablePicking;
+            _attachedDirector = null;
+        }
+    }
 
 }
