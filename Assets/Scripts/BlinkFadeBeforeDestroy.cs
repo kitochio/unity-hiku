@@ -6,14 +6,15 @@ public class BlinkFadeBeforeDestroy : MonoBehaviour
     [SerializeField] float fadeDuration = 0.5f; // フェード時間
     [SerializeField] float blinkHz = 8f;        // 点滅周波数(Hz)
 
-    SpriteRenderer[] renderers;
-    MaterialPropertyBlock[] blocks;
+    // 本体（このGameObject）のみ対象
+    SpriteRenderer selfRenderer;
+    MaterialPropertyBlock block;
 
     // Particles/Standard Unlit の Emission を使用
     static readonly int PropEmissionColor = Shader.PropertyToID("_EmissionColor");
-    Color[] baseEmissionColors;      // 復元用の元色
-    Color[] unitEmissionColors;      // 強度1に正規化した色
-    float[] baseIntensities;         // 元の強度（maxRGB）
+    Color baseEmissionColor;   // 元のEmission色
+    Color unitEmissionColor;   // 輝度1に正規化した色
+    float baseIntensity;       // 元の輝度（maxRGB）
 
     public void Begin(float lifeTime)
     {
@@ -23,43 +24,19 @@ public class BlinkFadeBeforeDestroy : MonoBehaviour
 
     IEnumerator FadeRoutine(float delay, float duration)
     {
-        // 対象: 子孫の SpriteRenderer のうち Particles/Standard Unlit + _EmissionColor を持つもの
-        var all = GetComponentsInChildren<SpriteRenderer>(true);
-        int n = 0;
-        for (int i = 0; i < all.Length; i++)
-        {
-            var mat = all[i] ? all[i].sharedMaterial : null;
-            if (mat != null && mat.shader != null && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty(PropEmissionColor))
-                n++;
-        }
+        // 対象: 本体の SpriteRenderer で、Particles/Standard Unlit + _EmissionColor がある場合のみ
+        selfRenderer = GetComponent<SpriteRenderer>();
+        var mat = selfRenderer ? selfRenderer.sharedMaterial : null;
+        if (!(mat != null && mat.shader != null && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty(PropEmissionColor)))
+            yield break;
 
-        renderers = new SpriteRenderer[n];
-        blocks = new MaterialPropertyBlock[n];
-        baseEmissionColors = new Color[n];
-        unitEmissionColors = new Color[n];
-        baseIntensities = new float[n];
+        block = new MaterialPropertyBlock();
 
-        int idx = 0;
-        for (int i = 0; i < all.Length; i++)
-        {
-            var r = all[i];
-            var mat = r ? r.sharedMaterial : null;
-            if (!(mat != null && mat.shader != null && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty(PropEmissionColor)))
-                continue;
-
-            renderers[idx] = r;
-            var b = new MaterialPropertyBlock();
-            blocks[idx] = b;
-
-            // 基準となる Emission 色と強度をキャッシュ
-            var ec0 = mat.GetColor(PropEmissionColor);
-            baseEmissionColors[idx] = ec0;
-            float inten = Mathf.Max(Mathf.Max(ec0.r, ec0.g), ec0.b);
-            baseIntensities[idx] = inten;
-            unitEmissionColors[idx] = inten > 0f ? (ec0 / Mathf.Max(inten, 1e-6f)) : ec0;
-
-            idx++;
-        }
+        // 参照となる Emission 色と輝度をキャッシュ
+        var ec0 = mat.GetColor(PropEmissionColor);
+        baseEmissionColor = ec0;
+        baseIntensity = Mathf.Max(Mathf.Max(ec0.r, ec0.g), ec0.b);
+        unitEmissionColor = baseIntensity > 0f ? (ec0 / Mathf.Max(baseIntensity, 1e-6f)) : ec0;
 
         if (delay > 0f) yield return new WaitForSeconds(delay);
 
@@ -69,39 +46,28 @@ public class BlinkFadeBeforeDestroy : MonoBehaviour
             t += Time.deltaTime;
             float fade = 1f - Mathf.Clamp01(t / duration);
             float blink = (Mathf.PingPong(Time.time * blinkHz, 1f) > 0.5f) ? 1f : 0f;
-            float scale = fade * blink; // 強度のみスケール
+            float scale = fade * blink; // 輝度のみスケール
 
-            for (int i = 0; i < renderers.Length; i++)
+            if (selfRenderer)
             {
-                var r = renderers[i];
-                if (!r) continue;
-
-                var b = blocks[i];
-                float curIntensity = baseIntensities[i] * scale;
-                var ec = unitEmissionColors[i] * curIntensity;
-                b.SetColor(PropEmissionColor, ec);
-                r.SetPropertyBlock(b);
+                float curIntensity = baseIntensity * scale;
+                var ec = unitEmissionColor * curIntensity;
+                block.SetColor(PropEmissionColor, ec);
+                selfRenderer.SetPropertyBlock(block);
             }
+
             yield return null;
         }
     }
 
     void OnDisable()
     {
-        // 破棄時に Emission を元に戻す
-        if (renderers == null) return;
-        for (int i = 0; i < renderers.Length; i++)
-        {
-            var r = renderers[i];
-            if (!r) continue;
+        // 無効化時に Emission を元に戻す
+        if (!selfRenderer) return;
 
-            var b = blocks != null && i < blocks.Length && blocks[i] != null ? blocks[i] : new MaterialPropertyBlock();
-            if (baseEmissionColors != null && i < baseEmissionColors.Length)
-            {
-                b.SetColor(PropEmissionColor, baseEmissionColors[i]);
-            }
-            r.SetPropertyBlock(b);
-        }
+        var b = block ?? new MaterialPropertyBlock();
+        b.SetColor(PropEmissionColor, baseEmissionColor);
+        selfRenderer.SetPropertyBlock(b);
     }
 }
 
