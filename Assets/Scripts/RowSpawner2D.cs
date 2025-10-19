@@ -126,7 +126,13 @@ public class RowSpawner2D : MonoBehaviour
                 Debug.LogWarning("Prefab に Rigidbody2D がありません");
             }
 
-            if (lifeTime > 0f) Destroy(go, lifeTime);
+            if (lifeTime > 0f)
+            {
+                var fx = go.GetComponent<BlinkFadeBeforeDestroy>();
+                if (!fx) fx = go.AddComponent<BlinkFadeBeforeDestroy>();
+                fx.Begin(lifeTime);
+                Destroy(go, lifeTime);
+            } 
         }
     }
 
