@@ -246,7 +246,7 @@ public class HoverPickAndStore : MonoBehaviour
     {
         if (director == null)
         {
-            director = FindObjectOfType<GameDirector>();
+            director = FindFirstObjectByType<GameDirector>();
         }
 
         if (_attachedDirector == director && _attachedDirector != null)
