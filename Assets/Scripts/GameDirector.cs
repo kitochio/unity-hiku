@@ -23,6 +23,9 @@ public class GameDirector : MonoBehaviour
     [SerializeField] private UnityEvent onGameStarted;
     [SerializeField] private UnityEvent onGameEnded;
 
+    [Header("References")]
+    [SerializeField] private HoverPickAndStore picker;
+
     public event Action GameStarted;
     public event Action GameEnded;
     public event Action<int> ScoreChanged;
@@ -31,6 +34,10 @@ public class GameDirector : MonoBehaviour
     public int Score { get; private set; }
     public float ElapsedTime { get; private set; }
     public float RemainingTime => useTimer ? Mathf.Max(0f, totalTime - ElapsedTime) : 0f;
+
+    private readonly System.Collections.Generic.List<int> _savedOrderIds = new System.Collections.Generic.List<int>();
+    private static readonly Color ColorLast = Color.red;
+    private static readonly Color ColorOther = Color.green;
 
     private void Start()
     {
@@ -51,6 +58,8 @@ public class GameDirector : MonoBehaviour
         }
 
         UpdateUI();
+
+        UpdateSavedObjectColorsIfChanged();
     }
 
     public void StartGame()
@@ -156,5 +165,44 @@ public class GameDirector : MonoBehaviour
         if (statusText != null)
             statusText.text = msg;
     }
-}
 
+    private void UpdateSavedObjectColorsIfChanged()
+    {
+        if (picker == null)
+            picker = FindFirstObjectByType<HoverPickAndStore>();
+        if (picker == null) return;
+
+        var src = picker.SavedObjects;
+        if (src == null) return;
+
+        var objs = new System.Collections.Generic.List<GameObject>();
+        var ids = new System.Collections.Generic.List<int>();
+        foreach (var go in src)
+        {
+            if (go == null) continue;
+            objs.Add(go);
+            ids.Add(go.GetInstanceID());
+        }
+
+        if (ids.Count == _savedOrderIds.Count)
+        {
+            bool same = true;
+            for (int i = 0; i < ids.Count; i++)
+            {
+                if (ids[i] != _savedOrderIds[i]) { same = false; break; }
+            }
+            if (same) return;
+        }
+
+        _savedOrderIds.Clear();
+        _savedOrderIds.AddRange(ids);
+
+        for (int i = 0; i < objs.Count; i++)
+        {
+            var go = objs[i];
+            var m = go != null ? go.GetComponent<MaterialOperations>() : null;
+            if (m == null) continue;
+            m.SetEmissionColor(i == objs.Count - 1 ? ColorLast : ColorOther);
+        }
+    }
+}
