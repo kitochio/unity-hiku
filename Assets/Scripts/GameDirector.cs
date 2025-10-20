@@ -36,8 +36,11 @@ public class GameDirector : MonoBehaviour
     public float RemainingTime => useTimer ? Mathf.Max(0f, totalTime - ElapsedTime) : 0f;
 
     private readonly System.Collections.Generic.List<int> _savedOrderIds = new System.Collections.Generic.List<int>();
-    private static readonly Color ColorLast = Color.red;
-    private static readonly Color ColorOther = Color.green;
+    private const float EmissionIntensity = 1.7f;
+    private static readonly Color ColorLast = Color.red * EmissionIntensity;
+    private static readonly Color ColorOther = Color.green * EmissionIntensity;
+    private readonly System.Collections.Generic.List<GameObject> _prevSavedObjects = new System.Collections.Generic.List<GameObject>();
+    private readonly System.Collections.Generic.Dictionary<int, Color> _originalEmissionById = new System.Collections.Generic.Dictionary<int, Color>();
 
     private void Start()
     {
@@ -197,12 +200,61 @@ public class GameDirector : MonoBehaviour
         _savedOrderIds.Clear();
         _savedOrderIds.AddRange(ids);
 
+        // Restore original color for objects that dropped out from previous list
+        if (_prevSavedObjects.Count > 0)
+        {
+            for (int i = 0; i < _prevSavedObjects.Count; i++)
+            {
+                var prev = _prevSavedObjects[i];
+                if (prev == null) continue;
+                int pid = prev.GetInstanceID();
+                if (!ids.Contains(pid))
+                {
+                    if (_originalEmissionById.TryGetValue(pid, out var orig))
+                    {
+                        var mop = prev.GetComponent<MaterialOperations>();
+                        if (mop != null)
+                        {
+                            mop.SetEmissionColor(orig);
+                        }
+                        _originalEmissionById.Remove(pid);
+                    }
+                }
+            }
+        }
+
         for (int i = 0; i < objs.Count; i++)
         {
             var go = objs[i];
             var m = go != null ? go.GetComponent<MaterialOperations>() : null;
             if (m == null) continue;
+
+            // Cache original emission color once per object
+            int id = go.GetInstanceID();
+            if (!_originalEmissionById.ContainsKey(id))
+            {
+                if (TryGetCurrentEmissionColor(go, out var current))
+                {
+                    _originalEmissionById[id] = current;
+                }
+            }
+
             m.SetEmissionColor(i == objs.Count - 1 ? ColorLast : ColorOther);
         }
+
+        // Keep current list for next diff
+        _prevSavedObjects.Clear();
+        _prevSavedObjects.AddRange(objs);
+    }
+
+    private static bool TryGetCurrentEmissionColor(GameObject go, out Color color)
+    {
+        color = default;
+        var sr = go != null ? go.GetComponent<SpriteRenderer>() : null;
+        var mat = sr ? sr.sharedMaterial : null;
+        if (!(mat != null && mat.shader != null && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty("_EmissionColor")))
+            return false;
+        color = mat.GetColor("_EmissionColor");
+        return true;
     }
 }
