@@ -8,10 +8,8 @@ public class GameDirector : MonoBehaviour
     public enum GameState { Ready, Playing, Paused, GameOver }
 
     [Header("UI")]
-    [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI statusText;
-    [SerializeField] private GameObject startPanel;
     [SerializeField] private GameObject hudPanel;
     [SerializeField] private GameObject gameOverPanel;
 
@@ -26,11 +24,7 @@ public class GameDirector : MonoBehaviour
     [Header("References")]
     [SerializeField] private HoverPickAndStore picker;
 
-    public event Action GameStarted;
-    public event Action GameEnded;
-    public event Action<int> ScoreChanged;
-
-    public GameState State { get; private set; } = GameState.Ready;
+    public GameState State { get; private set; } = GameState.Paused;
     public int Score { get; private set; }
     public float ElapsedTime { get; private set; }
     public float RemainingTime => useTimer ? Mathf.Max(0f, totalTime - ElapsedTime) : 0f;
@@ -65,23 +59,6 @@ public class GameDirector : MonoBehaviour
         UpdateUI();
     }
 
-    public void StartGame()
-    {
-        if (State == GameState.Playing) return;
-
-        Time.timeScale = 1f;
-        Score = 0;
-        ElapsedTime = 0f;
-        State = GameState.Playing;
-
-        ApplyUIState();
-        UpdateUI();
-
-        onGameStarted?.Invoke();
-        GameStarted?.Invoke();
-        SetStatusText(string.Empty);
-    }
-
     public void EndGame()
     {
         if (State != GameState.Playing && State != GameState.Paused) return;
@@ -90,20 +67,18 @@ public class GameDirector : MonoBehaviour
 
         ApplyUIState();
         UpdateUI();
-
-        onGameEnded?.Invoke();
-        GameEnded?.Invoke();
         SetStatusText("Game Over");
     }
 
     public void PauseGame()
     {
-        if (State != GameState.Playing) return;
+        if (State == GameState.Paused) return;
 
+        ElapsedTime = 0f;
         State = GameState.Paused;
-        Time.timeScale = 0f;
-        SetStatusText("Paused");
+        SetStatusText(string.Empty);
         ApplyUIState();
+        UpdateUI();
     }
 
     public void ResumeGame()
@@ -111,37 +86,12 @@ public class GameDirector : MonoBehaviour
         if (State != GameState.Paused) return;
 
         State = GameState.Playing;
-        Time.timeScale = 1f;
         SetStatusText(string.Empty);
         ApplyUIState();
     }
 
-    public void ResetGame()
-    {
-        Time.timeScale = 1f;
-        Score = 0;
-        ElapsedTime = 0f;
-        State = GameState.Ready;
-
-        ApplyUIState();
-        UpdateUI();
-        SetStatusText("Ready");
-    }
-
-    public void AddScore(int amount)
-    {
-        if (State != GameState.Playing) return;
-
-        Score = Mathf.Max(0, Score + amount);
-        ScoreChanged?.Invoke(Score);
-        UpdateUI();
-    }
-
     private void UpdateUI()
     {
-        if (scoreText != null)
-            scoreText.text = $"Score: {Score}";
-
         if (timerText != null)
         {
             if (useTimer)
@@ -153,9 +103,6 @@ public class GameDirector : MonoBehaviour
 
     private void ApplyUIState()
     {
-        if (startPanel != null)
-            startPanel.SetActive(State == GameState.Ready);
-
         if (hudPanel != null)
             hudPanel.SetActive(State == GameState.Playing || State == GameState.Paused);
 
@@ -195,6 +142,17 @@ public class GameDirector : MonoBehaviour
                 if (ids[i] != _savedOrderIds[i]) { same = false; break; }
             }
             if (same) return;
+        }
+
+        // If paused and new object(s) were added to SavedObjects, resume playing
+        bool addedNewObject = false;
+        for (int i = 0; i < ids.Count; i++)
+        {
+            if (!_savedOrderIds.Contains(ids[i])) { addedNewObject = true; break; }
+        }
+        if (addedNewObject && State == GameState.Paused)
+        {
+            ResumeGame();
         }
 
         _savedOrderIds.Clear();
