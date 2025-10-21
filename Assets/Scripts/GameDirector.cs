@@ -50,6 +50,8 @@ public class GameDirector : MonoBehaviour
 
     private void Update()
     {
+        UpdateSavedObjectColorsIfChanged();
+
         if (State != GameState.Playing) return;
 
         ElapsedTime += Time.deltaTime;
@@ -61,8 +63,6 @@ public class GameDirector : MonoBehaviour
         }
 
         UpdateUI();
-
-        UpdateSavedObjectColorsIfChanged();
     }
 
     public void StartGame()

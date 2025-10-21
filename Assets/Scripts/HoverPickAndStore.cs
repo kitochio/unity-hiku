@@ -23,12 +23,6 @@ public class HoverPickAndStore : MonoBehaviour
     public int capacity = 5;
     public IReadOnlyCollection<GameObject> SavedObjects => _queue;
 
-    [Header("Runtime control")]
-    [SerializeField] private bool pickingEnabled = true;
-    [SerializeField, Tooltip("Optional. Auto-found if unset.")]
-    private GameDirector director;
-    private GameDirector _attachedDirector;
-
     // 内部
     private readonly Queue<GameObject> _queue = new Queue<GameObject>();
     private readonly HashSet<int> _ids = new HashSet<int>(); // 重複防止
@@ -44,9 +38,6 @@ public class HoverPickAndStore : MonoBehaviour
 
         // 保存中に壊れた（Destroy）参照を掃除
         CleanupDead();
-
-        // Respect enable/disable flag
-        if (!pickingEnabled) return;
 
         // マウス位置からヒット判定
         var screen = Mouse.current.position.ReadValue();
@@ -222,56 +213,4 @@ public class HoverPickAndStore : MonoBehaviour
         return p.x >= Mathf.Min(a.x, b.x) - EPS && p.x <= Mathf.Max(a.x, b.x) + EPS &&
                p.y >= Mathf.Min(a.y, b.y) - EPS && p.y <= Mathf.Max(a.y, b.y) + EPS;
     }
-
-    // Internal control for picking
-    private void SetPickingEnabled(bool enabled) => pickingEnabled = enabled;
-    private void EnablePicking() => SetPickingEnabled(true);
-    private void DisablePicking() => SetPickingEnabled(false);
-
-    void OnEnable()
-    {
-        AttachDirector();
-        if (_attachedDirector != null)
-        {
-            SetPickingEnabled(_attachedDirector.State == GameDirector.GameState.Playing);
-        }
-    }
-
-    void OnDisable()
-    {
-        DetachDirector();
-    }
-
-    void AttachDirector()
-    {
-        if (director == null)
-        {
-            director = FindFirstObjectByType<GameDirector>();
-        }
-
-        if (_attachedDirector == director && _attachedDirector != null)
-        {
-            return; // already attached to the same instance
-        }
-
-        DetachDirector();
-
-        if (director != null)
-        {
-            director.GameStarted += EnablePicking;
-            director.GameEnded += DisablePicking;
-            _attachedDirector = director;
-        }
-    }
-
-    void DetachDirector()
-    {
-        if (_attachedDirector != null)
-        {
-            _attachedDirector.GameStarted -= EnablePicking;
-            _attachedDirector.GameEnded -= DisablePicking;
-            _attachedDirector = null;
-        }
-    }
-
 }
