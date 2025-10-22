@@ -1243,6 +1243,7 @@ MonoBehaviour:
     m_Bits: 4294967295
   maxDistance3D: 100
   capacity: 10
+  gameDirector: {fileID: 0}
 --- !u!4 &1559890005
 Transform:
   m_ObjectHideFlags: 0

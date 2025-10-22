@@ -20,12 +20,18 @@ public class HoverPickAndStore : MonoBehaviour
 
     [Header("Store settings")]
     [Range(1, 20)]
-    public int capacity = 5;
+    public int capacity = 3;
     public IReadOnlyCollection<GameObject> SavedObjects => _queue;
 
     // 内部
     private readonly Queue<GameObject> _queue = new Queue<GameObject>();
     private readonly HashSet<int> _ids = new HashSet<int>(); // 重複防止
+
+    // GameDirector の時間に応じて capacity を変化させる
+    private const int CapacityStart = 3;           // 初期値
+    private const int CapacityMax = 10;            // 上限
+    private const float SecondsPerIncrease = 10f;  // 10 秒ごとに +1
+    [SerializeField] private GameDirector gameDirector; // シーン内から参照（未設定なら自動探索）
 
     const float EPS = 1e-7f;
 
@@ -33,6 +39,8 @@ public class HoverPickAndStore : MonoBehaviour
 
     void Update()
     {
+        // capacity を GameDirector の時間に合わせて更新
+        UpdateDynamicCapacity();
         // マウスが無い環境はスキップ
         if (Mouse.current == null || Camera.main == null) return;
 
@@ -82,6 +90,22 @@ public class HoverPickAndStore : MonoBehaviour
         _queue.Enqueue(hitObj);
         _ids.Add(id);
         LogSavedDetails();
+    }
+
+    private void UpdateDynamicCapacity()
+    {
+        if (gameDirector == null)
+            gameDirector = FindFirstObjectByType<GameDirector>();
+
+        int target = CapacityStart;
+        if (gameDirector != null)
+        {
+            float elapsed = gameDirector.ElapsedTime;
+            int inc = Mathf.FloorToInt(elapsed / SecondsPerIncrease);
+            target = Mathf.Clamp(CapacityStart + inc, CapacityStart, CapacityMax);
+        }
+
+        capacity = target;
     }
 
     /// <summary>破棄済み参照を掃除</summary>
