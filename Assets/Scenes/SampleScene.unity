@@ -1242,7 +1242,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   maxDistance3D: 100
-  capacity: 3
+  capacity: 10
 --- !u!4 &1559890005
 Transform:
   m_ObjectHideFlags: 0

@@ -144,6 +144,29 @@ public class GameDirector : MonoBehaviour
             if (same) return;
         }
 
+        // If playing and the previously last-saved object was removed, end the game
+        if (State == GameState.Playing && _prevSavedObjects.Count > 0)
+        {
+            var prevLast = _prevSavedObjects[_prevSavedObjects.Count - 1];
+            bool lastRemoved = false;
+            if (prevLast == null)
+            {
+                // The last-saved object was destroyed (now null in Unity semantics)
+                lastRemoved = true;
+            }
+            else
+            {
+                int prevLastId = prevLast.GetInstanceID();
+                if (!ids.Contains(prevLastId))
+                    lastRemoved = true;
+            }
+
+            if (lastRemoved)
+            {
+                EndGame();
+            }
+        }
+
         // If paused and new object(s) were added to SavedObjects, resume playing
         bool addedNewObject = false;
         for (int i = 0; i < ids.Count; i++)
