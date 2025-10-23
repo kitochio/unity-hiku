@@ -203,3 +203,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayParticleOnDestroy
   particlePrefab: {fileID: 5799991390091033349, guid: ff7a15cfd025ffd4c811da4b328a9503, type: 3}
+  playOnDestroy: 0

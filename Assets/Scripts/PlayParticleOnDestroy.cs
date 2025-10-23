@@ -6,7 +6,7 @@ public class PlayParticleOnDestroy : MonoBehaviour
     public GameObject particlePrefab;
 
     [Tooltip("削除時にパーティクルを再生するかどうか（外部から変更可能）")]
-    public bool playOnDestroy = true;
+    public bool playOnDestroy = false;
 
     private bool isQuitting = false;
 

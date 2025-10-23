@@ -207,8 +207,9 @@ public class GameDirector : MonoBehaviour
         for (int i = 0; i < objs.Count; i++)
         {
             var go = objs[i];
+            var isLast = i == objs.Count - 1;
+
             var m = go != null ? go.GetComponent<MaterialOperations>() : null;
-            if (m == null) continue;
 
             // Cache original emission color once per object
             int id = go.GetInstanceID();
@@ -220,7 +221,17 @@ public class GameDirector : MonoBehaviour
                 }
             }
 
-            m.SetEmissionColor(i == objs.Count - 1 ? ColorLast : ColorOther);
+            if (m != null)
+            {
+                m.SetEmissionColor(isLast ? ColorLast : ColorOther);
+            }
+
+            // Toggle particle play on destroy: last saved = true, others = false
+            var pod = go != null ? go.GetComponent<PlayParticleOnDestroy>() : null;
+            if (pod != null)
+            {
+                pod.SetPlayOnDestroy(isLast);
+            }
         }
 
         // Keep current list for next diff
