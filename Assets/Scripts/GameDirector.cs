@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Events;
 using TMPro;
+using System.Collections;
 
 public class GameDirector : MonoBehaviour
 {
@@ -23,6 +24,8 @@ public class GameDirector : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private HoverPickAndStore picker;
+
+    private Coroutine _statusRoutine;
 
     public GameState State { get; private set; } = GameState.Paused;
     public int Score { get; private set; }
@@ -86,7 +89,7 @@ public class GameDirector : MonoBehaviour
         if (State != GameState.Paused) return;
 
         State = GameState.Playing;
-        SetStatusText(string.Empty);
+        ShowGameStartMessage();
         ApplyUIState();
     }
 
@@ -112,8 +115,63 @@ public class GameDirector : MonoBehaviour
 
     private void SetStatusText(string msg)
     {
-        if (statusText != null)
-            statusText.text = msg;
+        if (statusText == null) return;
+
+        if (_statusRoutine != null)
+        {
+            StopCoroutine(_statusRoutine);
+            _statusRoutine = null;
+        }
+
+        var c = statusText.color;
+        c.a = 1f;
+        statusText.color = c;
+        statusText.text = msg;
+    }
+
+    private void ShowGameStartMessage()
+    {
+        if (statusText == null) return;
+
+        if (_statusRoutine != null)
+        {
+            StopCoroutine(_statusRoutine);
+            _statusRoutine = null;
+        }
+
+        _statusRoutine = StartCoroutine(ShowStatusMessageCoroutine("GameStart!", 0.3f, 0.5f));
+    }
+
+    private IEnumerator ShowStatusMessageCoroutine(string message, float holdSeconds, float fadeSeconds)
+    {
+        // Initialize text and full alpha
+        statusText.text = message;
+        var c = statusText.color;
+        c.a = 1f;
+        statusText.color = c;
+
+        // Hold
+        if (holdSeconds > 0f)
+            yield return new WaitForSeconds(holdSeconds);
+
+        // Fade out
+        float t = 0f;
+        while (t < fadeSeconds)
+        {
+            t += Time.deltaTime;
+            float a = fadeSeconds > 0f ? Mathf.Lerp(1f, 0f, t / fadeSeconds) : 0f;
+            var cc = statusText.color;
+            cc.a = a;
+            statusText.color = cc;
+            yield return null;
+        }
+
+        // Clear and restore alpha
+        statusText.text = string.Empty;
+        c = statusText.color;
+        c.a = 1f;
+        statusText.color = c;
+        _statusRoutine = null;
     }
 
     private void UpdateSavedObjectColorsIfChanged()
