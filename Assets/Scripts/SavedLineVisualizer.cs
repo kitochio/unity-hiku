@@ -33,10 +33,14 @@ public class SavedLineVisualizer : MonoBehaviour
     private readonly List<Vector3> _buf = new();
     // 分割描画用の補助 LineRenderer 群（コリジョン生成にも流用）
     private readonly List<LineRenderer> _segments = new();
-    
+
     [Header("Preview To Mouse")]
     [Tooltip("���݂̃}�E�X�ʒu�ւ̉E�Z�O�����g��")] public bool showPreviewToMouse = true;
     private LineRenderer _preview;
+
+    [Header("Game State")]
+    [SerializeField, Tooltip("GameOver �̎��Ƀv���r���[�� OFF �ɂ���")] private bool disablePreviewOnGameOver = true;
+    [SerializeField] private GameDirector gameDirector;
 
     // 2 点未満は線が引けない
     private const int MinPointsToDraw = 2;
@@ -77,6 +81,15 @@ public class SavedLineVisualizer : MonoBehaviour
     void LateUpdate()
     {
         if (store == null) return;
+        if (disablePreviewOnGameOver)
+        {
+            if (gameDirector == null) gameDirector = FindFirstObjectByType<GameDirector>();
+            if (gameDirector != null && gameDirector.State == GameDirector.GameState.GameOver)
+            {
+                HidePreviewToMouse();
+                return;
+            }
+        }
         if (showPreviewToMouse) UpdatePreviewToMouse();
         else HidePreviewToMouse();
     }
