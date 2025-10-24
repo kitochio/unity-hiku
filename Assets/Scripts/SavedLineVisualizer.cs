@@ -1,19 +1,21 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
+// 2D 専用：HoverPickAndStore の保存順を線で可視化
 [RequireComponent(typeof(LineRenderer))]
 public class SavedLineVisualizer : MonoBehaviour
 {
     [Header("Source")]
-    [SerializeField] private HoverPickAndStore store;
+    [SerializeField, Tooltip("描画する点のソース（保存中オブジェクト群）")] private HoverPickAndStore store;
 
     [Header("Render")]
-    [Tooltip("2D での Z 座標固定値")]
+    [Tooltip("2D 表示用の固定 Z 座標（手前/奥の重なり制御）")]
     public float z2D = 0f;
 
     [Header("Gaps Around Points")]
-    [Min(0f)] public float gap = 0.05f;
+    [Min(0f), Tooltip("各ポイントの前後を空ける長さ（0 で無効）")]
+    public float gap = 0.05f;
+    [Tooltip("ギャップ有りの分割線で描画（OFF で連続線）")]
     public bool useGappedSegments = true;
 
     [Header("Collision")]
@@ -24,9 +26,15 @@ public class SavedLineVisualizer : MonoBehaviour
     [Tooltip("コリジョンを Trigger にする")]
     public bool colliderIsTrigger = false;
 
+    // メインの LineRenderer（連続線用）
     private LineRenderer lr;
+    // 現在の描画ポイント（Z を z2D に固定済み）
     private readonly List<Vector3> _buf = new();
+    // 分割描画用の補助 LineRenderer 群（コリジョン生成にも流用）
     private readonly List<LineRenderer> _segments = new();
+
+    // 2 点未満は線が引けない
+    private const int MinPointsToDraw = 2;
 
     void Awake()
     {
@@ -37,26 +45,20 @@ public class SavedLineVisualizer : MonoBehaviour
     {
         if (store == null) return;
 
-        _buf.Clear();
-        foreach (var go in store.SavedObjects)
-        {
-            if (!go) continue;
-            var p = go.transform.position;
-            p.z = z2D;
-            _buf.Add(p);
-        }
+        // 1) 保存物から現在の描画ポイントを作る
+        BuildPointBufferFromStore();
 
-        if (_buf.Count < 2)
+        // 2) 点が足りなければ表示リセット
+        if (!HasEnoughPoints())
         {
-            if (useGappedSegments) EnsureSegmentCount(0);
-            else if (lr.positionCount != 0) lr.positionCount = 0;
+            ClearLineAndSegments();
             return;
         }
 
+        // 3) 連続線 or ギャップ分割で描画
         if (!useGappedSegments || gap <= 0f)
         {
-            lr.positionCount = _buf.Count;
-            lr.SetPositions(_buf.ToArray());
+            DrawContinuousLine();
             if (enableCollision) UpdateCollidersForContinuousLine();
             else { DisableAllSegmentColliders(); EnsureSegmentCount(0); }
         }
@@ -67,6 +69,44 @@ public class SavedLineVisualizer : MonoBehaviour
         }
     }
 
+    // 保存物から _buf を更新（Z は z2D に固定）
+    void BuildPointBufferFromStore()
+    {
+        _buf.Clear();
+        foreach (var go in store.SavedObjects)
+        {
+            if (!go) continue;
+            _buf.Add(WithZ(go.transform.position, z2D));
+        }
+    }
+
+    // 最低点数の判定
+    bool HasEnoughPoints() => _buf.Count >= MinPointsToDraw;
+
+    // Z を固定した Vector3 を返す小ヘルパー
+    static Vector3 WithZ(Vector3 p, float z) { p.z = z; return p; }
+
+    // 連続線の描画（LineRenderer 1 本）
+    void DrawContinuousLine()
+    {
+        lr.positionCount = _buf.Count;
+        lr.SetPositions(_buf.ToArray());
+    }
+
+    // 点が足りない時の片付け
+    void ClearLineAndSegments()
+    {
+        if (useGappedSegments)
+        {
+            EnsureSegmentCount(0);
+        }
+        else
+        {
+            if (lr.positionCount != 0) lr.positionCount = 0;
+        }
+    }
+
+    // ギャップ付き（各点の前後を空ける）で分割線描画
     void DrawSegmentedWithGaps()
     {
         int n = _buf.Count;
@@ -79,13 +119,13 @@ public class SavedLineVisualizer : MonoBehaviour
         {
             Vector3 a = _buf[i];
             Vector3 b = _buf[i + 1];
-
-            a.z = z; b.z = z;
+            a.z = z; b.z = z; // 念のため再固定
 
             Vector3 ab = b - a;
             float len = ab.magnitude;
             var lrSeg = _segments[i];
 
+            // 両端の空きを引くと長さが無い
             if (len <= (gap * 2f))
             {
                 lrSeg.positionCount = 0;
@@ -111,6 +151,7 @@ public class SavedLineVisualizer : MonoBehaviour
         }
     }
 
+    // 連続線の各セグメントに 2D コリジョンを配置
     void UpdateCollidersForContinuousLine()
     {
         int n = _buf.Count;
@@ -124,6 +165,8 @@ public class SavedLineVisualizer : MonoBehaviour
             Vector3 b = _buf[i + 1];
             a.z = z; b.z = z;
 
+            // 連続描画の可視線はメイン lr を使うため、
+            // セグメント lr はコリジョン専用（表示点数 0）にする
             var lrSeg = _segments[i];
             lrSeg.positionCount = 0;
 
@@ -131,24 +174,21 @@ public class SavedLineVisualizer : MonoBehaviour
         }
     }
 
+    // 分割用 LineRenderer の個数を count に合わせる
     void EnsureSegmentCount(int count)
     {
+        // 余剰分を削除
         for (int i = _segments.Count - 1; i >= count; i--)
         {
             if (_segments[i])
             {
-                if (Application.isPlaying)
-                {
-                    Destroy(_segments[i].gameObject);
-                }
-                else
-                {
-                    DestroyImmediate(_segments[i].gameObject);
-                }
+                if (Application.isPlaying) Destroy(_segments[i].gameObject);
+                else DestroyImmediate(_segments[i].gameObject);
             }
             _segments.RemoveAt(i);
         }
 
+        // 足りない分を作成
         for (int i = _segments.Count; i < count; i++)
         {
             var go = new GameObject($"Segment_{i}");
@@ -160,6 +200,7 @@ public class SavedLineVisualizer : MonoBehaviour
         }
     }
 
+    // start-end 区間に BoxCollider2D を 1 本生成/更新
     void UpdateColliderOnSegment(GameObject go, Vector3 start, Vector3 end)
     {
         float length = (end - start).magnitude;
@@ -171,7 +212,7 @@ public class SavedLineVisualizer : MonoBehaviour
 
         float thickness = colliderThickness > 0f ? colliderThickness : Mathf.Max(0.0001f, lr.widthMultiplier);
 
-        // 2D: BoxCollider2D only
+        // 2D: BoxCollider2D のみ
         RemoveCollider3D(go);
         var col = go.GetComponent<BoxCollider2D>();
         if (!col) col = go.AddComponent<BoxCollider2D>();
@@ -189,6 +230,7 @@ public class SavedLineVisualizer : MonoBehaviour
         col.enabled = true;
     }
 
+    // 分割セグメント上の全コリジョンを無効化
     void DisableAllSegmentColliders()
     {
         foreach (var seg in _segments)
@@ -198,6 +240,7 @@ public class SavedLineVisualizer : MonoBehaviour
         }
     }
 
+    // 任意 GameObject の 2D/3D コリジョンを無効化
     static void DisableCollidersOn(GameObject go)
     {
         if (!go) return;
@@ -205,6 +248,7 @@ public class SavedLineVisualizer : MonoBehaviour
         foreach (var c in go.GetComponents<Collider2D>()) c.enabled = false;
     }
 
+    // 誤って付与された 3D コリジョンを除去（2D 運用を徹底）
     static void RemoveCollider3D(GameObject go)
     {
         var c3d = go.GetComponent<Collider>();
@@ -214,6 +258,7 @@ public class SavedLineVisualizer : MonoBehaviour
         }
     }
 
+    // LineRenderer の見た目設定をコピー
     static void CopyLineSettings(LineRenderer src, LineRenderer dst)
     {
         if (!src || !dst) return;

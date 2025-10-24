@@ -1,23 +1,32 @@
 using UnityEngine;
-using UnityEngine.InputSystem;  // ★ 新Input System用
+using UnityEngine.InputSystem;  // New Input System
 
+// マウス位置に追従するシンプルな 2D 用フォロワー
 public class MouseFollowParticle : MonoBehaviour
 {
-    Camera mainCamera;
+    [Header("Follow Settings")]
+    [Tooltip("ScreenToWorldPoint に渡す Z（カメラからの距離）")]
+    [SerializeField] private float depthFromCamera = 10f;
+
+    private Camera _mainCamera;
 
     void Start()
     {
-        mainCamera = Camera.main;
+        _mainCamera = Camera.main;
     }
 
     void Update()
     {
         if (Mouse.current == null) return;
 
-        Vector2 mousePosition = Mouse.current.position.ReadValue();
-        Vector3 screenPosition = new Vector3(mousePosition.x, mousePosition.y, 10f); // zはカメラからの距離
-        Vector3 worldPosition = mainCamera.ScreenToWorldPoint(screenPosition);
+        // カメラ参照が切れていたら取り直す
+        if (_mainCamera == null) _mainCamera = Camera.main;
+        if (_mainCamera == null) return;
 
-        transform.position = worldPosition;
+        // 画面座標→ワールド座標へ変換して追従
+        Vector2 mouse = Mouse.current.position.ReadValue();
+        Vector3 screen = new Vector3(mouse.x, mouse.y, depthFromCamera);
+        Vector3 world = _mainCamera.ScreenToWorldPoint(screen);
+        transform.position = world;
     }
 }

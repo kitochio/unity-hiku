@@ -4,35 +4,47 @@ using UnityEngine;
 [RequireComponent(typeof(Collider2D))]
 public class Point : MonoBehaviour
 {
-    public float acceleration = 8f; // 毎FixedUpdateで付与したい“加速度”の大きさ
-    public float maxAcceleration = 20f; // 1回あたりの上限（暴走・震え防止）
-    public LayerMask targetLayers = ~0; // 反発対象のレイヤー（既定は全レイヤー）
-    public bool applySymmetrically = true; // 片側のスクリプトから相手にも同量を与えるか
+    [Header("Force Settings")]
+    [Tooltip("相手から離れる加速度の大きさ（m/s^2）")]
+    public float acceleration = 8f;
+    [Tooltip("加速度の上限（1 フレームあたりの最大換算）")]
+    public float maxAcceleration = 20f;
 
-    Rigidbody2D rb;
+    [Header("Filter")]
+    [Tooltip("衝突相手として扱うレイヤー")]
+    public LayerMask targetLayers = ~0;
+    [Tooltip("相手側にも反作用の力を適用するか")]
+    public bool applySymmetrically = true;
 
-    void Awake() => rb = GetComponent<Rigidbody2D>();
+    private Rigidbody2D _rb;
+
+    void Awake() => _rb = GetComponent<Rigidbody2D>();
 
     void OnCollisionStay2D(Collision2D col)
     {
-        var otherRb = col.rigidbody; // 衝突相手のRigidbody
-        if (otherRb == rb) return; // 自己参照防止
-        if (((1 << col.gameObject.layer) & targetLayers) == 0) return;
+        var otherRb = col.rigidbody;
+        if (!IsTarget(col) || otherRb == _rb) return;
 
-        // 反発方向の決定：質量中心同士のベクトル（自分→相手を逆にとる）
-        Vector2 otherCenter = otherRb ? (Vector2)otherRb.worldCenterOfMass : col.collider.bounds.center;
-        Vector2 dir = ((Vector2)rb.worldCenterOfMass - otherCenter).normalized;
+        // 自分の質量中心から相手の質量中心へ向かうベクトルの逆方向（離れる向き）
+        Vector2 dir = DirectionAwayFromOther(col, otherRb);
         if (dir.sqrMagnitude < 1e-6f) return;
 
-        // 2Dには Acceleration モードがないので「F = m * a」で力に変換
+        // Acceleration ベース -> 力に変換（F = m * a）
         Vector2 a = Vector2.ClampMagnitude(dir * acceleration, maxAcceleration);
-        Vector2 f = a * rb.mass;
-        rb.AddForce(f, ForceMode2D.Force);
+        _rb.AddForce(a * _rb.mass, ForceMode2D.Force);
 
+        // 反作用（同一ペアで二重適用を避けるため ID で片側だけ）
         if (applySymmetrically && otherRb && GetInstanceID() < otherRb.GetInstanceID())
         {
-            Vector2 fOther = (-a) * otherRb.mass;
-            otherRb.AddForce(fOther, ForceMode2D.Force);
+            otherRb.AddForce((-a) * otherRb.mass, ForceMode2D.Force);
         }
+    }
+
+    bool IsTarget(Collision2D col) => ((1 << col.gameObject.layer) & targetLayers) != 0;
+
+    Vector2 DirectionAwayFromOther(Collision2D col, Rigidbody2D otherRb)
+    {
+        Vector2 otherCenter = otherRb ? (Vector2)otherRb.worldCenterOfMass : col.collider.bounds.center;
+        return ((Vector2)_rb.worldCenterOfMass - otherCenter).normalized;
     }
 }

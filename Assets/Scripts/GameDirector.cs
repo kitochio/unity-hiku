@@ -174,6 +174,7 @@ public class GameDirector : MonoBehaviour
         _statusRoutine = null;
     }
 
+    // SavedObjects の並び変化に応じて UI/色/エフェクトを更新
     private void UpdateSavedObjectColorsIfChanged()
     {
         if (picker == null)
@@ -192,6 +193,7 @@ public class GameDirector : MonoBehaviour
             ids.Add(go.GetInstanceID());
         }
 
+        // 並びが前回と同じなら何もしない（軽量化）
         if (ids.Count == _savedOrderIds.Count)
         {
             bool same = true;
@@ -202,14 +204,14 @@ public class GameDirector : MonoBehaviour
             if (same) return;
         }
 
-        // If playing and the previously last-saved object was removed, end the game
+        // Playing 中に前回の最後の要素が消えたらゲーム終了
         if (State == GameState.Playing && _prevSavedObjects.Count > 0)
         {
             var prevLast = _prevSavedObjects[_prevSavedObjects.Count - 1];
             bool lastRemoved = false;
             if (prevLast == null)
             {
-                // The last-saved object was destroyed (now null in Unity semantics)
+                // 最後の要素が Destroy された
                 lastRemoved = true;
             }
             else
@@ -225,7 +227,7 @@ public class GameDirector : MonoBehaviour
             }
         }
 
-        // If paused and new object(s) were added to SavedObjects, resume playing
+        // Paused 中に新規追加があれば再開
         bool addedNewObject = false;
         for (int i = 0; i < ids.Count; i++)
         {
@@ -239,7 +241,7 @@ public class GameDirector : MonoBehaviour
         _savedOrderIds.Clear();
         _savedOrderIds.AddRange(ids);
 
-        // Restore original color for objects that dropped out from previous list
+        // 前回リストから外れたオブジェクトは元の Emission 色へ戻す
         if (_prevSavedObjects.Count > 0)
         {
             for (int i = 0; i < _prevSavedObjects.Count; i++)
@@ -269,7 +271,7 @@ public class GameDirector : MonoBehaviour
 
             var m = go != null ? go.GetComponent<MaterialOperations>() : null;
 
-            // Cache original emission color once per object
+            // 初回だけ現在の Emission をキャッシュ
             int id = go.GetInstanceID();
             if (!_originalEmissionById.ContainsKey(id))
             {
@@ -284,7 +286,7 @@ public class GameDirector : MonoBehaviour
                 m.SetEmissionColor(isLast ? ColorLast : ColorOther);
             }
 
-            // Toggle particle play on destroy: last saved = true, others = false
+            // 破棄時パーティクル: 最後の要素のみ ON、それ以外は OFF
             var pod = go != null ? go.GetComponent<PlayParticleOnDestroy>() : null;
             if (pod != null)
             {
@@ -292,7 +294,7 @@ public class GameDirector : MonoBehaviour
             }
         }
 
-        // Keep current list for next diff
+        // 次回比較用に保存
         _prevSavedObjects.Clear();
         _prevSavedObjects.AddRange(objs);
     }

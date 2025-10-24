@@ -1,42 +1,40 @@
 using UnityEngine;
 using System.Collections;
 
+// Particles/Standard Unlit の Emission をフェード＋点滅させるヘルパー
 public class MaterialOperations : MonoBehaviour
 {
-    [SerializeField] float fadeDuration = 0.5f; // フェード時間
-    [SerializeField] float blinkHz = 8f;        // 点滅周波数(Hz)
+    [Header("Blink/Fade")]
+    [SerializeField, Tooltip("フェード時間（秒）")] private float fadeDuration = 0.5f;
+    [SerializeField, Tooltip("点滅周波数（Hz）")] private float blinkHz = 8f;
 
-    // 本体（このGameObject）のみ対象
-    SpriteRenderer selfRenderer;
-    MaterialPropertyBlock block;
+    // 対象: 自身の SpriteRenderer の共有マテリアル
+    private SpriteRenderer _renderer;
+    private MaterialPropertyBlock _block;
 
-    // Particles/Standard Unlit の Emission を使用
-    static readonly int PropEmissionColor = Shader.PropertyToID("_EmissionColor");
-    Color baseEmissionColor;   // 元のEmission色
-    Color unitEmissionColor;   // 輝度1に正規化した色
-    float baseIntensity;       // 元の輝度（maxRGB）
+    // Emission property
+    private static readonly int PropEmissionColor = Shader.PropertyToID("_EmissionColor");
+    private Color _baseEmissionColor;   // ベースの Emission 色
+    private Color _unitEmissionColor;   // 単位強度(=1)の色
+    private float _baseIntensity;       // ベース強度（RGB の最大）
 
+    // lifeTime の終わりに向けてフェード＋点滅
     public void Begin(float lifeTime)
     {
         if (lifeTime <= 0f || fadeDuration <= 0f) return;
         StartCoroutine(FadeRoutine(Mathf.Max(0f, lifeTime - fadeDuration), fadeDuration));
     }
 
-    IEnumerator FadeRoutine(float delay, float duration)
+    private IEnumerator FadeRoutine(float delay, float duration)
     {
-        // 対象: 本体の SpriteRenderer で、Particles/Standard Unlit + _EmissionColor がある場合のみ
-        selfRenderer = GetComponent<SpriteRenderer>();
-        var mat = selfRenderer ? selfRenderer.sharedMaterial : null;
-        if (!(mat != null && mat.shader != null && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty(PropEmissionColor)))
-            yield break;
+        if (!TryInitTarget()) yield break; // 未対応マテリアルなら何もしない
 
-        block = new MaterialPropertyBlock();
-
-        // 参照となる Emission 色と輝度をキャッシュ
+        // ベースの Emission と単位色を記録
+        var mat = _renderer.sharedMaterial;
         var ec0 = mat.GetColor(PropEmissionColor);
-        baseEmissionColor = ec0;
-        baseIntensity = Mathf.Max(Mathf.Max(ec0.r, ec0.g), ec0.b);
-        unitEmissionColor = baseIntensity > 0f ? (ec0 / Mathf.Max(baseIntensity, 1e-6f)) : ec0;
+        _baseEmissionColor = ec0;
+        _baseIntensity = Mathf.Max(Mathf.Max(ec0.r, ec0.g), ec0.b);
+        _unitEmissionColor = _baseIntensity > 0f ? (ec0 / Mathf.Max(_baseIntensity, 1e-6f)) : ec0;
 
         if (delay > 0f) yield return new WaitForSeconds(delay);
 
@@ -46,47 +44,54 @@ public class MaterialOperations : MonoBehaviour
             t += Time.deltaTime;
             float fade = 1f - Mathf.Clamp01(t / duration);
             float blink = (Mathf.PingPong(Time.time * blinkHz, 1f) > 0.5f) ? 1f : 0f;
-            float scale = fade * blink; // 輝度のみスケール
+            float scale = fade * blink;
 
-            if (selfRenderer)
+            if (_renderer)
             {
-                float curIntensity = baseIntensity * scale;
-                var ec = unitEmissionColor * curIntensity;
-                block.SetColor(PropEmissionColor, ec);
-                selfRenderer.SetPropertyBlock(block);
+                float curIntensity = _baseIntensity * scale;
+                var ec = _unitEmissionColor * curIntensity;
+                EnsureBlock();
+                _block.SetColor(PropEmissionColor, ec);
+                _renderer.SetPropertyBlock(_block);
             }
 
             yield return null;
         }
     }
 
-    // 外部からエミッションカラーを設定する
+    // 現在の Emission 色を即時に設定（Begin の見た目更新にも利用）
     public void SetEmissionColor(Color newEmissionColor)
     {
-        if (!selfRenderer) selfRenderer = GetComponent<SpriteRenderer>();
-        var mat = selfRenderer ? selfRenderer.sharedMaterial : null;
-        if (!(mat != null && mat.shader != null && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty(PropEmissionColor)))
-            return;
+        if (!TryInitTarget()) return;
 
-        if (block == null) block = new MaterialPropertyBlock();
+        _baseEmissionColor = newEmissionColor;
+        _baseIntensity = Mathf.Max(Mathf.Max(newEmissionColor.r, newEmissionColor.g), newEmissionColor.b);
+        _unitEmissionColor = _baseIntensity > 0f ? (newEmissionColor / Mathf.Max(_baseIntensity, 1e-6f)) : newEmissionColor;
 
-        // ベース情報を更新（フェード/点滅計算用）
-        baseEmissionColor = newEmissionColor;
-        baseIntensity = Mathf.Max(Mathf.Max(newEmissionColor.r, newEmissionColor.g), newEmissionColor.b);
-        unitEmissionColor = baseIntensity > 0f ? (newEmissionColor / Mathf.Max(baseIntensity, 1e-6f)) : newEmissionColor;
-
-        // 即時適用
-        block.SetColor(PropEmissionColor, newEmissionColor);
-        selfRenderer.SetPropertyBlock(block);
+        EnsureBlock();
+        _block.SetColor(PropEmissionColor, newEmissionColor);
+        _renderer.SetPropertyBlock(_block);
     }
 
-    void OnDisable()
+    private void OnDisable()
     {
-        // 無効化時に Emission を元に戻す
-        if (!selfRenderer) return;
+        // 無効化時に Emission を元へ戻す
+        if (!_renderer) return;
+        EnsureBlock();
+        _block.SetColor(PropEmissionColor, _baseEmissionColor);
+        _renderer.SetPropertyBlock(_block);
+    }
 
-        var b = block ?? new MaterialPropertyBlock();
-        b.SetColor(PropEmissionColor, baseEmissionColor);
-        selfRenderer.SetPropertyBlock(b);
+    // 対象 SpriteRenderer/Material が要件を満たすか
+    private bool TryInitTarget()
+    {
+        if (!_renderer) _renderer = GetComponent<SpriteRenderer>();
+        var mat = _renderer ? _renderer.sharedMaterial : null;
+        return mat && mat.shader && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty(PropEmissionColor);
+    }
+
+    private void EnsureBlock()
+    {
+        if (_block == null) _block = new MaterialPropertyBlock();
     }
 }

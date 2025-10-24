@@ -1,32 +1,36 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem; // New Input System
 
+// 2D 専用：マウス下のオブジェクトを順番に保存し、
+// 保存順の自己交差（線が交わる）を避ける簡単な制御を行う。
 public class HoverPickAndStore : MonoBehaviour
 {
     [Header("Pick settings (2D only)")]
-    [Tooltip("Required component type name. Empty = no filter.")]
+    [Tooltip("必要なコンポーネントの型名（空ならフィルタなし）")]
     public string requiredTypeName = "";
 
-    [Tooltip("LayerMask used for 2D ray intersection")]
+    [Tooltip("2D レイ判定に使用する LayerMask")]
     public LayerMask layerMask = ~0;
 
     [Header("Store settings")]
-    [Range(1, 20)]
-    public int capacity = 3;
+    [Range(1, 20)] public int capacity = 3;
     public IReadOnlyCollection<GameObject> SavedObjects => _queue;
 
-    private readonly Queue<GameObject> _queue = new Queue<GameObject>();
-    private readonly HashSet<int> _ids = new HashSet<int>();
+    // 内部状態
+    private readonly Queue<GameObject> _queue = new();
+    private readonly HashSet<int> _ids = new();
 
+    // GameDirector の経過時間に応じて capacity を増やす
     private const int CapacityStart = 3;
     private const int CapacityMax = 10;
     private const float SecondsPerIncrease = 10f;
     [SerializeField] private GameDirector gameDirector;
 
+    // 幾何用の定数
     const float EPS = 1e-7f;
 
+    // 交差判定用バッファ（最新順で capacity 件まで）
     private readonly List<Vector2> _pts = new();
 
     void Update()
@@ -34,40 +38,64 @@ public class HoverPickAndStore : MonoBehaviour
         UpdateDynamicCapacity();
         if (Mouse.current == null || Camera.main == null) return;
 
+        // 破棄済み要素の掃除
         CleanupDead();
 
-        var screen = Mouse.current.position.ReadValue();
-        var ray = Camera.main.ScreenPointToRay(screen);
+        // マウス下の 2D オブジェクトを取得
+        var hitObj = GetObjectUnderMouse2D();
+        if (!hitObj) return;
 
-        GameObject hitObj = null;
+        // 型フィルタに適合するか
+        if (!PassesTypeFilter(hitObj)) return;
 
-        // 2D-only: Ray intersection against 2D colliders
-        var hit = Physics2D.GetRayIntersection(ray, Mathf.Infinity, layerMask);
-        if (hit.collider != null) hitObj = hit.collider.gameObject;
-
-        if (hitObj == null) return;
-
-        if (!string.IsNullOrEmpty(requiredTypeName) && !HasType(hitObj, requiredTypeName))
-            return;
-
-        int id = hitObj.GetInstanceID();
-        if (_ids.Contains(id)) return;
-
-        Vector3 pos = hitObj.transform.position;
-        if (!CanPlaceNextPoint(new Vector2(pos.x, pos.y))) return;
-
-        if (_queue.Count >= capacity)
-        {
-            var old = _queue.Dequeue();
-            if (old != null) _ids.Remove(old.GetInstanceID());
-        }
-
-        _queue.Enqueue(hitObj);
-        _ids.Add(id);
-        LogSavedDetails();
+        // 保存キューに追加を試みる
+        TryEnqueue(hitObj);
     }
 
-    private void UpdateDynamicCapacity()
+    // マウス位置から 2D コライダーを取得
+    GameObject GetObjectUnderMouse2D()
+    {
+        var screen = Mouse.current.position.ReadValue();
+        var ray = Camera.main.ScreenPointToRay(screen);
+        var hit = Physics2D.GetRayIntersection(ray, Mathf.Infinity, layerMask);
+        return hit.collider ? hit.collider.gameObject : null;
+    }
+
+    // 型フィルタに一致するか
+    bool PassesTypeFilter(GameObject go)
+    {
+        if (string.IsNullOrEmpty(requiredTypeName)) return true;
+        return HasType(go, requiredTypeName);
+    }
+
+    // キューへの追加を試みる（重複・交差・満杯処理を含む）
+    bool TryEnqueue(GameObject go)
+    {
+        int id = go.GetInstanceID();
+        if (_ids.Contains(id)) return false;
+
+        var pos = go.transform.position;
+        if (!CanPlaceNextPoint(new Vector2(pos.x, pos.y))) return false;
+
+        EvictIfFull();
+
+        _queue.Enqueue(go);
+        _ids.Add(id);
+        LogSavedDetails();
+        return true;
+    }
+
+    // 満杯なら最古を追い出す
+    void EvictIfFull()
+    {
+        if (_queue.Count < capacity) return;
+
+        var old = _queue.Dequeue();
+        if (old != null) _ids.Remove(old.GetInstanceID());
+    }
+
+    // 動的に capacity を更新（GameDirector の経過時間に応じて）
+    void UpdateDynamicCapacity()
     {
         if (gameDirector == null)
             gameDirector = FindFirstObjectByType<GameDirector>();
@@ -83,7 +111,8 @@ public class HoverPickAndStore : MonoBehaviour
         capacity = target;
     }
 
-    private void CleanupDead()
+    // 破棄済み（Destroy 済み）オブジェクトをキューから取り除く
+    void CleanupDead()
     {
         if (_queue.Count == 0) return;
 
@@ -93,7 +122,7 @@ public class HoverPickAndStore : MonoBehaviour
         for (int i = 0; i < n; i++)
         {
             var go = _queue.Dequeue();
-            if (go == null)
+            if (!go)
             {
                 removed = true;
                 continue;
@@ -105,17 +134,17 @@ public class HoverPickAndStore : MonoBehaviour
         {
             _ids.Clear();
             foreach (var go in _queue)
-                if (go != null) _ids.Add(go.GetInstanceID());
+                if (go) _ids.Add(go.GetInstanceID());
             Debug.Log("Removed destroyed objects from saved list.");
             LogSavedDetails();
         }
     }
 
-    private bool HasType(GameObject go, string typeName)
+    // GameObject が指定された型名のコンポーネントを持つか
+    bool HasType(GameObject go, string typeName)
     {
         var c = go.GetComponent(typeName);
-        if (c != null) return true;
-        return false;
+        return c != null;
     }
 
     [ContextMenu("Log Saved Details")]
@@ -125,23 +154,24 @@ public class HoverPickAndStore : MonoBehaviour
         for (int i = 0; i < arr.Length; i++)
         {
             var go = arr[i];
-            if (go == null)
+            if (!go)
             {
                 Debug.Log($"[{i}] (null) destroyed");
                 continue;
             }
 
             string info = $"[{i}] Name: {go.name}, " +
-                        $"Tag: {go.tag}, " +
-                        $"Layer: {LayerMask.LayerToName(go.layer)}, " +
-                        $"Position: {go.transform.position}";
-            Debug.Log($"{info}");
+                          $"Tag: {go.tag}, " +
+                          $"Layer: {LayerMask.LayerToName(go.layer)}, " +
+                          $"Position: {go.transform.position}";
+            Debug.Log(info);
         }
     }
 
-    private bool CanPlaceNextPoint(Vector2 q)
+    // 次の点 q を追加しても、既存の折れ線と自己交差しないかを判定
+    bool CanPlaceNextPoint(Vector2 q)
     {
-        FillPointsFromQueue();
+        RebuildRecentPoints();
         if (_pts.Count < 2) return true;
 
         Vector2 pn = _pts[_pts.Count - 1];
@@ -156,23 +186,22 @@ public class HoverPickAndStore : MonoBehaviour
         return true;
     }
 
-    private void FillPointsFromQueue()
+    // 現在のキューから最大 capacity 件までの 2D 点列を作成（先頭が古い順）
+    void RebuildRecentPoints()
     {
         _pts.Clear();
-
         foreach (var go in _queue)
         {
             if (_pts.Count >= capacity) break;
+            if (!go) continue;
 
-            if (go != null)
-            {
-                Vector3 pos = go.transform.position;
-                _pts.Add(new Vector2(pos.x, pos.y));
-            }
+            Vector3 pos = go.transform.position;
+            _pts.Add(new Vector2(pos.x, pos.y));
         }
     }
 
-    private static bool SegmentsIntersect(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4)
+    // 2D 線分同士の交差判定（厳密めの境界含む） -------------------------
+    static bool SegmentsIntersect(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4)
     {
         float d1 = Cross(p4 - p3, p1 - p3);
         float d2 = Cross(p4 - p3, p2 - p3);
@@ -191,9 +220,9 @@ public class HoverPickAndStore : MonoBehaviour
         return false;
     }
 
-    private static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
+    static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
 
-    private static bool OnSegment(Vector2 a, Vector2 b, Vector2 p)
+    static bool OnSegment(Vector2 a, Vector2 b, Vector2 p)
     {
         return p.x >= Mathf.Min(a.x, b.x) - EPS && p.x <= Mathf.Max(a.x, b.x) + EPS &&
                p.y >= Mathf.Min(a.y, b.y) - EPS && p.y <= Mathf.Max(a.y, b.y) + EPS;
