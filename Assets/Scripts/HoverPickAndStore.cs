@@ -5,82 +5,57 @@ using UnityEngine.InputSystem; // New Input System
 
 public class HoverPickAndStore : MonoBehaviour
 {
-    [Header("Pick settings")]
-    [Tooltip("2Dならtrue（Physics2D）、3Dならfalse（Physics）")]
-    public bool use2D = true;
-
-    [Tooltip("対象に必須の型名（例：Enemy や MyNamespace.MyComponent）。空なら無条件で拾う")]
+    [Header("Pick settings (2D only)")]
+    [Tooltip("Required component type name. Empty = no filter.")]
     public string requiredTypeName = "";
 
-    [Tooltip("レイキャストに使うレイヤー")]
+    [Tooltip("LayerMask used for 2D ray intersection")]
     public LayerMask layerMask = ~0;
-
-    [Tooltip("レイの最大距離（3D時）")]
-    public float maxDistance3D = 100f;
 
     [Header("Store settings")]
     [Range(1, 20)]
     public int capacity = 3;
     public IReadOnlyCollection<GameObject> SavedObjects => _queue;
 
-    // 内部
     private readonly Queue<GameObject> _queue = new Queue<GameObject>();
-    private readonly HashSet<int> _ids = new HashSet<int>(); // 重複防止
+    private readonly HashSet<int> _ids = new HashSet<int>();
 
-    // GameDirector の時間に応じて capacity を変化させる
-    private const int CapacityStart = 3;           // 初期値
-    private const int CapacityMax = 10;            // 上限
-    private const float SecondsPerIncrease = 10f;  // 10 秒ごとに +1
-    [SerializeField] private GameDirector gameDirector; // シーン内から参照（未設定なら自動探索）
+    private const int CapacityStart = 3;
+    private const int CapacityMax = 10;
+    private const float SecondsPerIncrease = 10f;
+    [SerializeField] private GameDirector gameDirector;
 
     const float EPS = 1e-7f;
 
-    private readonly List<Vector2> _pts = new(); // 現在の点列（順番通り：p0, p1, ...）
+    private readonly List<Vector2> _pts = new();
 
     void Update()
     {
-        // capacity を GameDirector の時間に合わせて更新
         UpdateDynamicCapacity();
-        // マウスが無い環境はスキップ
         if (Mouse.current == null || Camera.main == null) return;
 
-        // 保存中に壊れた（Destroy）参照を掃除
         CleanupDead();
 
-        // マウス位置からヒット判定
         var screen = Mouse.current.position.ReadValue();
         var ray = Camera.main.ScreenPointToRay(screen);
 
         GameObject hitObj = null;
 
-        if (use2D)
-        {
-            // 2D: カメラの前方へ長めに飛ばす
-            var hit = Physics2D.GetRayIntersection(ray, Mathf.Infinity, layerMask);
-            if (hit.collider != null) hitObj = hit.collider.gameObject;
-        }
-        else
-        {
-            // 3D: ふつうのRaycast
-            if (Physics.Raycast(ray, out var hit, maxDistance3D, layerMask))
-                hitObj = hit.collider.gameObject;
-        }
+        // 2D-only: Ray intersection against 2D colliders
+        var hit = Physics2D.GetRayIntersection(ray, Mathf.Infinity, layerMask);
+        if (hit.collider != null) hitObj = hit.collider.gameObject;
 
         if (hitObj == null) return;
 
-        // 型フィルタ（空なら無条件OK）
         if (!string.IsNullOrEmpty(requiredTypeName) && !HasType(hitObj, requiredTypeName))
             return;
 
-        // 既に保存済みなら何もしない
         int id = hitObj.GetInstanceID();
         if (_ids.Contains(id)) return;
 
-        // 交差する場合も何もしない
         Vector3 pos = hitObj.transform.position;
         if (!CanPlaceNextPoint(new Vector2(pos.x, pos.y))) return;
 
-        // 収容上限を越えるなら最古を外す
         if (_queue.Count >= capacity)
         {
             var old = _queue.Dequeue();
@@ -108,7 +83,6 @@ public class HoverPickAndStore : MonoBehaviour
         capacity = target;
     }
 
-    /// <summary>破棄済み参照を掃除</summary>
     private void CleanupDead()
     {
         if (_queue.Count == 0) return;
@@ -122,26 +96,23 @@ public class HoverPickAndStore : MonoBehaviour
             if (go == null)
             {
                 removed = true;
-                continue; // 捨てる
+                continue;
             }
-            _queue.Enqueue(go); // 生きてるので戻す
+            _queue.Enqueue(go);
         }
 
-        // HashSetを作り直して同期
         if (removed)
         {
             _ids.Clear();
             foreach (var go in _queue)
                 if (go != null) _ids.Add(go.GetInstanceID());
-            Debug.Log("破棄されたオブジェクトをリストから削除しました。");
+            Debug.Log("Removed destroyed objects from saved list.");
             LogSavedDetails();
         }
     }
 
-    /// <summary>GameObjectが指定型（名前）のコンポーネントを持つか</summary>
     private bool HasType(GameObject go, string typeName)
     {
-        // GetComponent(string) で探す
         var c = go.GetComponent(typeName);
         if (c != null) return true;
         return false;
@@ -156,11 +127,10 @@ public class HoverPickAndStore : MonoBehaviour
             var go = arr[i];
             if (go == null)
             {
-                Debug.Log($"[{i}] (null) 破棄済み");
+                Debug.Log($"[{i}] (null) destroyed");
                 continue;
             }
 
-            // 基本情報
             string info = $"[{i}] Name: {go.name}, " +
                         $"Tag: {go.tag}, " +
                         $"Layer: {LayerMask.LayerToName(go.layer)}, " +
@@ -169,16 +139,13 @@ public class HoverPickAndStore : MonoBehaviour
         }
     }
 
-    /// <summary>次の候補点 q を置けるか？（交差なし）</summary>
     private bool CanPlaceNextPoint(Vector2 q)
     {
         FillPointsFromQueue();
-        // 0～1点なら交差しようがない
         if (_pts.Count < 2) return true;
 
         Vector2 pn = _pts[_pts.Count - 1];
 
-        // 新規線分 [pn, q] が既存のどれとも交差しないか
         for (int i = 0; i < _pts.Count - 2; i++)
         {
             Vector2 a = _pts[i];
@@ -189,16 +156,13 @@ public class HoverPickAndStore : MonoBehaviour
         return true;
     }
 
-        /// <summary>
-    /// _queue から座標を抽出して _pts に代入（上限 capacity）
-    /// </summary>
     private void FillPointsFromQueue()
     {
-        _pts.Clear(); // 前回の内容は消す
+        _pts.Clear();
 
         foreach (var go in _queue)
         {
-            if (_pts.Count >= capacity) break; // 上限到達で終了
+            if (_pts.Count >= capacity) break;
 
             if (go != null)
             {
@@ -208,7 +172,6 @@ public class HoverPickAndStore : MonoBehaviour
         }
     }
 
-    // ---- 交差判定まわり ----
     private static bool SegmentsIntersect(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4)
     {
         float d1 = Cross(p4 - p3, p1 - p3);
@@ -216,12 +179,10 @@ public class HoverPickAndStore : MonoBehaviour
         float d3 = Cross(p2 - p1, p3 - p1);
         float d4 = Cross(p2 - p1, p4 - p1);
 
-        // 一般の交差
         if (((d1 > EPS && d2 < -EPS) || (d1 < -EPS && d2 > EPS)) &&
             ((d3 > EPS && d4 < -EPS) || (d3 < -EPS && d4 > EPS)))
             return true;
 
-        // 端点が一直線上に乗るなどの境界ケース
         if (Mathf.Abs(d1) <= EPS && OnSegment(p3, p4, p1)) return true;
         if (Mathf.Abs(d2) <= EPS && OnSegment(p3, p4, p2)) return true;
         if (Mathf.Abs(d3) <= EPS && OnSegment(p1, p2, p3)) return true;
