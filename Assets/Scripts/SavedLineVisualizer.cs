@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 // 2D 専用：HoverPickAndStore の保存順を線で可視化
 [RequireComponent(typeof(LineRenderer))]
@@ -32,6 +33,10 @@ public class SavedLineVisualizer : MonoBehaviour
     private readonly List<Vector3> _buf = new();
     // 分割描画用の補助 LineRenderer 群（コリジョン生成にも流用）
     private readonly List<LineRenderer> _segments = new();
+    
+    [Header("Preview To Mouse")]
+    [Tooltip("���݂̃}�E�X�ʒu�ւ̉E�Z�O�����g��")] public bool showPreviewToMouse = true;
+    private LineRenderer _preview;
 
     // 2 点未満は線が引けない
     private const int MinPointsToDraw = 2;
@@ -67,6 +72,13 @@ public class SavedLineVisualizer : MonoBehaviour
             DrawSegmentedWithGaps();
             if (!enableCollision) DisableAllSegmentColliders();
         }
+    }
+
+    void LateUpdate()
+    {
+        if (store == null) return;
+        if (showPreviewToMouse) UpdatePreviewToMouse();
+        else HidePreviewToMouse();
     }
 
     // 保存物から _buf を更新（Z は z2D に固定）
@@ -246,6 +258,106 @@ public class SavedLineVisualizer : MonoBehaviour
         if (!go) return;
         foreach (var c in go.GetComponents<Collider>()) c.enabled = false;
         foreach (var c in go.GetComponents<Collider2D>()) c.enabled = false;
+    }
+
+    // ���݂̃}�E�X�ʒu�ւ̉E�`��/�R���W����
+    void UpdatePreviewToMouse()
+    {
+        if (_buf.Count == 0 || Camera.main == null || Mouse.current == null)
+        {
+            HidePreviewToMouse();
+            return;
+        }
+
+        if (!TryGetMouseWorldOnZ(z2D, out var mouseWorld))
+        {
+            HidePreviewToMouse();
+            return;
+        }
+
+        Vector2 q = new Vector2(mouseWorld.x, mouseWorld.y);
+
+        // Use store's intersection logic
+        if (!store.CanPlaceNextPointForPreview(q))
+        {
+            HidePreviewToMouse();
+            return;
+        }
+
+        Vector3 a = _buf[_buf.Count - 1];
+        Vector3 b = WithZ(mouseWorld, z2D);
+
+        Vector3 ab = b - a;
+        float len = ab.magnitude;
+        float useGap = Mathf.Max(0f, gap);
+
+        EnsurePreviewRenderer();
+
+        if (!useGappedSegments || useGap <= 0f)
+        {
+            _preview.positionCount = 2;
+            _preview.SetPosition(0, a);
+            _preview.SetPosition(1, b);
+            if (enableCollision) UpdateColliderOnSegment(_preview.gameObject, a, b); else DisableCollidersOn(_preview.gameObject);
+            return;
+        }
+
+        if (len <= (useGap * 2f))
+        {
+            // too short considering gaps
+            HidePreviewToMouse();
+            return;
+        }
+
+        Vector3 dir = ab / len;
+        Vector3 start = a + dir * useGap;
+        Vector3 end = b - dir * useGap;
+
+        _preview.positionCount = 2;
+        _preview.SetPosition(0, start);
+        _preview.SetPosition(1, end);
+        if (enableCollision) UpdateColliderOnSegment(_preview.gameObject, start, end); else DisableCollidersOn(_preview.gameObject);
+    }
+
+    void HidePreviewToMouse()
+    {
+        if (_preview)
+        {
+            _preview.positionCount = 0;
+            DisableCollidersOn(_preview.gameObject);
+        }
+    }
+
+    void EnsurePreviewRenderer()
+    {
+        if (_preview) return;
+        var go = new GameObject("PreviewSegment");
+        go.transform.SetParent(this.transform, worldPositionStays: false);
+        _preview = go.AddComponent<LineRenderer>();
+        CopyLineSettings(lr, _preview);
+        _preview.positionCount = 0;
+    }
+
+    // Camera �̃��C���� z2D �A���t�@�x�b�g�ł̃}�E�X�ʒu
+    static bool TryGetMouseWorldOnZ(float z, out Vector3 world)
+    {
+        world = default;
+        var cam = Camera.main;
+        if (cam == null || Mouse.current == null) return false;
+        Vector2 screen = Mouse.current.position.ReadValue();
+        Ray ray = cam.ScreenPointToRay(screen);
+        float dz = ray.direction.z;
+        if (Mathf.Abs(dz) < 1e-6f)
+        {
+            // Fallback; orthographic or nearly parallel
+            world = cam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, Mathf.Abs(z - cam.transform.position.z)));
+            world.z = z;
+            return true;
+        }
+        float t = (z - ray.origin.z) / dz;
+        world = ray.origin + ray.direction * t;
+        world.z = z;
+        return true;
     }
 
     // 誤って付与された 3D コリジョンを除去（2D 運用を徹底）

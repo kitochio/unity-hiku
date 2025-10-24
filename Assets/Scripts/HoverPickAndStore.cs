@@ -227,4 +227,7 @@ public class HoverPickAndStore : MonoBehaviour
         return p.x >= Mathf.Min(a.x, b.x) - EPS && p.x <= Mathf.Max(a.x, b.x) + EPS &&
                p.y >= Mathf.Min(a.y, b.y) - EPS && p.y <= Mathf.Max(a.y, b.y) + EPS;
     }
+
+    // Public wrapper for external preview checks
+    public bool CanPlaceNextPointForPreview(Vector2 q) => CanPlaceNextPoint(q);
 }
