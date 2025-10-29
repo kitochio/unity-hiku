@@ -241,6 +241,9 @@ public class HoverPickAndStore : MonoBehaviour
 
     void PlayEnqueueSfx()
     {
+        var gd = gameDirector != null ? gameDirector : FindFirstObjectByType<GameDirector>();
+        if (gd == null || gd.State != GameDirector.GameState.Playing) return;
+
         var src = sfxSource != null ? sfxSource : GetComponent<AudioSource>();
         if (src != null && enqueueSfx != null)
         {
