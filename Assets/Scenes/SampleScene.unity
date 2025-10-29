@@ -1077,13 +1077,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   store: {fileID: 1559890004}
-  force2D: 1
   z2D: 0
   gap: 0.4
   useGappedSegments: 1
   enableCollision: 1
   colliderThickness: 0.2
   colliderIsTrigger: 0
+  showPreviewToMouse: 1
+  disablePreviewOnGameOver: 1
+  gameDirector: {fileID: 0}
 --- !u!120 &1239024579
 LineRenderer:
   serializedVersion: 2
@@ -1236,13 +1238,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4526e54961a3bd4c81fba0d03fa28b5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  use2D: 1
   requiredTypeName: Point
   layerMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  maxDistance3D: 100
   capacity: 10
+  enqueueSfx: {fileID: 8300000, guid: 3b4f58a1057fdba41b18b621d0d84cf0, type: 3}
+  enqueueSfxVolume: 1
+  sfxSource: {fileID: 0}
   gameDirector: {fileID: 0}
 --- !u!4 &1559890005
 Transform:

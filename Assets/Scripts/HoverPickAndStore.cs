@@ -17,6 +17,13 @@ public class HoverPickAndStore : MonoBehaviour
     [Range(1, 20)] public int capacity = 3;
     public IReadOnlyCollection<GameObject> SavedObjects => _queue;
 
+    [Header("Audio")]
+    [Tooltip("キューに追加成功時に鳴らす音")]
+    [SerializeField] private AudioClip enqueueSfx;
+    [Range(0f, 1f)] [SerializeField] private float enqueueSfxVolume = 1f;
+    [Tooltip("再生に使う AudioSource（未指定なら自身から取得）")]
+    [SerializeField] private AudioSource sfxSource;
+
     // 内部状態
     private readonly Queue<GameObject> _queue = new();
     private readonly HashSet<int> _ids = new();
@@ -82,6 +89,7 @@ public class HoverPickAndStore : MonoBehaviour
         _queue.Enqueue(go);
         _ids.Add(id);
         LogSavedDetails();
+        PlayEnqueueSfx();
         return true;
     }
 
@@ -230,4 +238,13 @@ public class HoverPickAndStore : MonoBehaviour
 
     // Public wrapper for external preview checks
     public bool CanPlaceNextPointForPreview(Vector2 q) => CanPlaceNextPoint(q);
+
+    void PlayEnqueueSfx()
+    {
+        var src = sfxSource != null ? sfxSource : GetComponent<AudioSource>();
+        if (src != null && enqueueSfx != null)
+        {
+            src.PlayOneShot(enqueueSfx, enqueueSfxVolume);
+        }
+    }
 }
