@@ -4,6 +4,12 @@ using UnityEngine.InputSystem;
 
 // 2D 専用：HoverPickAndStore の保存順を線で可視化
 [RequireComponent(typeof(LineRenderer))]
+/// <summary>
+/// HoverPickAndStore の保存順を LineRenderer で可視化します。
+/// ・連続線/ギャップ付きセグメントの描画
+/// ・（任意）セグメントごとの 2D 当たり判定付与
+/// ・マウスへ伸びるプレビュー表示
+/// </summary>
 public class SavedLineVisualizer : MonoBehaviour
 {
     [Header("Source")]
@@ -45,11 +51,16 @@ public class SavedLineVisualizer : MonoBehaviour
     // 2 点未満は線が引けない
     private const int MinPointsToDraw = 2;
 
+    /// <summary>LineRenderer を取得します。</summary>
     void Awake()
     {
         lr = GetComponent<LineRenderer>();
     }
 
+    /// <summary>
+    /// 保存点列から描画用バッファを構築し、連続/ギャップ付きのいずれかで線を描画します。
+    /// 必要に応じて 2D コライダーも更新します。
+    /// </summary>
     void Update()
     {
         if (store == null) return;
@@ -78,6 +89,9 @@ public class SavedLineVisualizer : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// プレビュー線の更新や非表示制御（GameOver時に非表示など）を行います。
+    /// </summary>
     void LateUpdate()
     {
         if (store == null) return;
@@ -95,6 +109,9 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // 保存物から _buf を更新（Z は z2D に固定）
+    /// <summary>
+    /// 保存中のオブジェクトから z を z2D にそろえた 3D 点列を作成します。
+    /// </summary>
     void BuildPointBufferFromStore()
     {
         _buf.Clear();
@@ -106,12 +123,15 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // 最低点数の判定
+    /// <summary>描画に必要な最低点数がそろっているか。</summary>
     bool HasEnoughPoints() => _buf.Count >= MinPointsToDraw;
 
     // Z を固定した Vector3 を返す小ヘルパー
+    /// <summary>与えた z を上書きした Vector3 を返します。</summary>
     static Vector3 WithZ(Vector3 p, float z) { p.z = z; return p; }
 
     // 連続線の描画（LineRenderer 1 本）
+    /// <summary>1 本の LineRenderer で連続線を描画します。</summary>
     void DrawContinuousLine()
     {
         lr.positionCount = _buf.Count;
@@ -119,6 +139,7 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // 点が足りない時の片付け
+    /// <summary>点数不足時のクリア：連続線と各セグメントを非表示にします。</summary>
     void ClearLineAndSegments()
     {
         if (useGappedSegments)
@@ -132,6 +153,9 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // ギャップ付き（各点の前後を空ける）で分割線描画
+    /// <summary>
+    /// 各セグメントの両端にギャップを空けて個別の LineRenderer で描画します。
+    /// </summary>
     void DrawSegmentedWithGaps()
     {
         int n = _buf.Count;
@@ -177,6 +201,9 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // 連続線の各セグメントに 2D コリジョンを配置
+    /// <summary>
+    /// 連続線モード時、各区間に 2D コライダーだけを付与します（描画は lr のみ）。
+    /// </summary>
     void UpdateCollidersForContinuousLine()
     {
         int n = _buf.Count;
@@ -200,6 +227,9 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // 分割用 LineRenderer の個数を count に合わせる
+    /// <summary>
+    /// セグメント用の LineRenderer 個数を指定数に合わせて追加/削除します。
+    /// </summary>
     void EnsureSegmentCount(int count)
     {
         // 余剰分を削除
@@ -226,6 +256,9 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // start-end 区間に BoxCollider2D を 1 本生成/更新
+    /// <summary>
+    /// 指定区間に合わせて BoxCollider2D を 1 本生成/更新します。
+    /// </summary>
     void UpdateColliderOnSegment(GameObject go, Vector3 start, Vector3 end)
     {
         float length = (end - start).magnitude;
@@ -256,6 +289,7 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // 分割セグメント上の全コリジョンを無効化
+    /// <summary>すべてのセグメント上のコライダーを無効化します。</summary>
     void DisableAllSegmentColliders()
     {
         foreach (var seg in _segments)
@@ -266,6 +300,7 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // 任意 GameObject の 2D/3D コリジョンを無効化
+    /// <summary>指定の GameObject 上の 2D/3D コライダーを無効化します。</summary>
     static void DisableCollidersOn(GameObject go)
     {
         if (!go) return;
@@ -274,6 +309,9 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // ���݂̃}�E�X�ʒu�ւ̉E�`��/�R���W����
+    /// <summary>
+    /// 最新点からマウス方向へのプレビュー線を描きます（交差不可はストアのロジックを利用）。
+    /// </summary>
     void UpdatePreviewToMouse()
     {
         if (_buf.Count == 0 || Camera.main == null || Mouse.current == null)
@@ -332,6 +370,7 @@ public class SavedLineVisualizer : MonoBehaviour
         if (enableCollision) UpdateColliderOnSegment(_preview.gameObject, start, end); else DisableCollidersOn(_preview.gameObject);
     }
 
+    /// <summary>プレビュー線を非表示にします。</summary>
     void HidePreviewToMouse()
     {
         if (_preview)
@@ -341,6 +380,7 @@ public class SavedLineVisualizer : MonoBehaviour
         }
     }
 
+    /// <summary>プレビュー用の LineRenderer を遅延生成します。</summary>
     void EnsurePreviewRenderer()
     {
         if (_preview) return;
@@ -352,6 +392,9 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // Camera �̃��C���� z2D �A���t�@�x�b�g�ł̃}�E�X�ʒu
+    /// <summary>
+    /// カメラからの Ray と平面 z=z2D の交点を求め、マウス位置のワールド座標を取得します。
+    /// </summary>
     static bool TryGetMouseWorldOnZ(float z, out Vector3 world)
     {
         world = default;
@@ -374,6 +417,7 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // 誤って付与された 3D コリジョンを除去（2D 運用を徹底）
+    /// <summary>登録されている 3D コライダーを取り除きます（2D 専用のため）。</summary>
     static void RemoveCollider3D(GameObject go)
     {
         var c3d = go.GetComponent<Collider>();
@@ -384,6 +428,7 @@ public class SavedLineVisualizer : MonoBehaviour
     }
 
     // LineRenderer の見た目設定をコピー
+    /// <summary>LineRenderer の描画設定を src から dst へコピーします。</summary>
     static void CopyLineSettings(LineRenderer src, LineRenderer dst)
     {
         if (!src || !dst) return;

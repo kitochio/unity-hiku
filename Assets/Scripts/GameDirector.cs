@@ -4,8 +4,15 @@ using UnityEngine.Events;
 using TMPro;
 using System.Collections;
 
+/// <summary>
+/// ゲーム全体の状態管理とUI更新を行うディレクター。
+/// ・タイマー/ステータス表示の更新
+/// ・開始/一時停止/終了の状態遷移
+/// ・保存オブジェクトの強調表示や削除検出
+/// </summary>
 public class GameDirector : MonoBehaviour
 {
+    /// <summary>ゲームの進行状態</summary>
     public enum GameState { Ready, Playing, Paused, GameOver }
 
     [Header("UI")]
@@ -39,12 +46,19 @@ public class GameDirector : MonoBehaviour
     private readonly System.Collections.Generic.List<GameObject> _prevSavedObjects = new System.Collections.Generic.List<GameObject>();
     private readonly System.Collections.Generic.Dictionary<int, Color> _originalEmissionById = new System.Collections.Generic.Dictionary<int, Color>();
 
+    /// <summary>
+    /// 起動時にUI表示状態を反映し、初期表示を更新します。
+    /// </summary>
     private void Start()
     {
         ApplyUIState();
         UpdateUI();
     }
 
+    /// <summary>
+    /// 毎フレーム、保存オブジェクトの見た目を監視/更新し、
+    /// Playing 中であれば経過時間とUIを更新します（タイマー終了時はゲーム終了）。
+    /// </summary>
     private void Update()
     {
         UpdateSavedObjectColorsIfChanged();
@@ -62,6 +76,9 @@ public class GameDirector : MonoBehaviour
         UpdateUI();
     }
 
+    /// <summary>
+    /// ゲームを GameOver 状態へ遷移させ、UIとステータス表示を更新します。
+    /// </summary>
     public void EndGame()
     {
         if (State != GameState.Playing && State != GameState.Paused) return;
@@ -73,6 +90,9 @@ public class GameDirector : MonoBehaviour
         SetStatusText("Game Over");
     }
 
+    /// <summary>
+    /// 一時停止に遷移します。経過時間を 0 にリセットし、UIを更新します。
+    /// </summary>
     public void PauseGame()
     {
         if (State == GameState.Paused) return;
@@ -84,6 +104,9 @@ public class GameDirector : MonoBehaviour
         UpdateUI();
     }
 
+    /// <summary>
+    /// 一時停止から再開し、開始メッセージを表示します。
+    /// </summary>
     public void ResumeGame()
     {
         if (State != GameState.Paused) return;
@@ -93,6 +116,9 @@ public class GameDirector : MonoBehaviour
         ApplyUIState();
     }
 
+    /// <summary>
+    /// タイマーなどのUI表示を更新します。
+    /// </summary>
     private void UpdateUI()
     {
         if (timerText != null)
@@ -104,6 +130,9 @@ public class GameDirector : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 現在の <see cref="State"/> に応じて HUD とゲームオーバーパネルの表示を切り替えます。
+    /// </summary>
     private void ApplyUIState()
     {
         if (hudPanel != null)
@@ -113,6 +142,10 @@ public class GameDirector : MonoBehaviour
             gameOverPanel.SetActive(State == GameState.GameOver);
     }
 
+    /// <summary>
+    /// ステータス用テキストにメッセージを即時表示します（フェードなし）。
+    /// </summary>
+    /// <param name="msg">表示するメッセージ</param>
     private void SetStatusText(string msg)
     {
         if (statusText == null) return;
@@ -129,6 +162,9 @@ public class GameDirector : MonoBehaviour
         statusText.text = msg;
     }
 
+    /// <summary>
+    /// 「GameStart!」の短いメッセージを表示するコルーチンを開始します。
+    /// </summary>
     private void ShowGameStartMessage()
     {
         if (statusText == null) return;
@@ -142,6 +178,12 @@ public class GameDirector : MonoBehaviour
         _statusRoutine = StartCoroutine(ShowStatusMessageCoroutine("GameStart!", 0.3f, 0.5f));
     }
 
+    /// <summary>
+    /// 任意メッセージを一定時間保持してからフェードアウトします。
+    /// </summary>
+    /// <param name="message">表示する文言</param>
+    /// <param name="holdSeconds">保持秒数（0なら即フェード）</param>
+    /// <param name="fadeSeconds">フェード時間（0なら即消去）</param>
     private IEnumerator ShowStatusMessageCoroutine(string message, float holdSeconds, float fadeSeconds)
     {
         // Initialize text and full alpha
@@ -175,6 +217,13 @@ public class GameDirector : MonoBehaviour
     }
 
     // SavedObjects の並び変化に応じて UI/色/エフェクトを更新
+    /// <summary>
+    /// 保存オブジェクト列に変化があれば、
+    /// ・最後のオブジェクトを赤、その他を緑の Emission に変更
+    /// ・最後のオブジェクトに限り破壊時パーティクルを ON
+    /// また、Playing 中に最後の要素が外れた場合はゲーム終了、
+    /// Paused 中に新規追加された場合は再開します。
+    /// </summary>
     private void UpdateSavedObjectColorsIfChanged()
     {
         if (picker == null)
@@ -299,6 +348,13 @@ public class GameDirector : MonoBehaviour
         _prevSavedObjects.AddRange(objs);
     }
 
+    /// <summary>
+    /// 対象の SpriteRenderer が Particles/Standard Unlit を使用し、
+    /// _EmissionColor を持っている場合に現在の Emission 色を取得します。
+    /// </summary>
+    /// <param name="go">対象の GameObject</param>
+    /// <param name="color">取得した色（成功時）</param>
+    /// <returns>取得できた場合 true</returns>
     private static bool TryGetCurrentEmissionColor(GameObject go, out Color color)
     {
         color = default;

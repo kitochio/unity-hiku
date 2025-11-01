@@ -2,6 +2,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;  // New Input System
 
 // マウス位置に追従するシンプルな 2D 用フォロワー
+/// <summary>
+/// マウス位置に追従して移動するシンプルな 2D パーティクル。
+/// </summary>
 public class MouseFollowParticle : MonoBehaviour
 {
     [Header("Follow Settings")]
@@ -10,11 +13,15 @@ public class MouseFollowParticle : MonoBehaviour
 
     private Camera _mainCamera;
 
+    /// <summary>メインカメラをキャッシュします。</summary>
     void Start()
     {
         _mainCamera = Camera.main;
     }
 
+    /// <summary>
+    /// マウス座標をワールド座標へ変換し、Transform を追従させます。
+    /// </summary>
     void Update()
     {
         if (Mouse.current == null) return;

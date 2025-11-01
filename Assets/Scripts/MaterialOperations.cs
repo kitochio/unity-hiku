@@ -2,6 +2,10 @@ using UnityEngine;
 using System.Collections;
 
 // Particles/Standard Unlit の Emission をフェード＋点滅させるヘルパー
+/// <summary>
+/// Particles/Standard Unlit を対象に、Emission のブリンク/フェードや色変更を行う補助。
+/// SpriteRenderer の MaterialPropertyBlock と子孫の ParticleSystemRenderer に適用します。
+/// </summary>
 public class MaterialOperations : MonoBehaviour
 {
     [Header("Blink/Fade")]
@@ -19,12 +23,19 @@ public class MaterialOperations : MonoBehaviour
     private float _baseIntensity;       // ベース強度（RGB の最大）
 
     // lifeTime の終わりに向けてフェード＋点滅
+    /// <summary>
+    /// 指定の生存時間に合わせて、末尾でフェードアウトする演出を開始します。
+    /// </summary>
+    /// <param name="lifeTime">オブジェクトの寿命（秒）</param>
     public void Begin(float lifeTime)
     {
         if (lifeTime <= 0f || fadeDuration <= 0f) return;
         StartCoroutine(FadeRoutine(Mathf.Max(0f, lifeTime - fadeDuration), fadeDuration));
     }
 
+    /// <summary>
+    /// 一定時間待機した後、Emission の強度をブリンクしながらフェードさせます。
+    /// </summary>
     private IEnumerator FadeRoutine(float delay, float duration)
     {
         if (!TryInitTarget()) yield break; // 未対応マテリアルなら何もしない
@@ -60,6 +71,9 @@ public class MaterialOperations : MonoBehaviour
     }
 
     // 現在の Emission 色を即時に設定（Begin の見た目更新にも利用）
+    /// <summary>
+    /// 現在の Emission 色を明示的に設定し、SpriteRenderer と子孫のパーティクルにも反映します。
+    /// </summary>
     public void SetEmissionColor(Color newEmissionColor)
     {
         // Update local SpriteRenderer if available
@@ -93,6 +107,9 @@ public class MaterialOperations : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 無効化時に Emission をベース色へ戻します。
+    /// </summary>
     private void OnDisable()
     {
         // 無効化時に Emission を元へ戻す
@@ -103,6 +120,9 @@ public class MaterialOperations : MonoBehaviour
     }
 
     // 対象 SpriteRenderer/Material が要件を満たすか
+    /// <summary>
+    /// 対象の SpriteRenderer と対応する Material を確保します。
+    /// </summary>
     private bool TryInitTarget()
     {
         if (!_renderer) _renderer = GetComponent<SpriteRenderer>();
@@ -110,6 +130,7 @@ public class MaterialOperations : MonoBehaviour
         return mat && mat.shader && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty(PropEmissionColor);
     }
 
+    /// <summary>MaterialPropertyBlock を遅延生成します。</summary>
     private void EnsureBlock()
     {
         if (_block == null) _block = new MaterialPropertyBlock();

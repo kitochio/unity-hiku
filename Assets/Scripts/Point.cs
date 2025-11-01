@@ -4,6 +4,10 @@ using UnityEngine;
 [RequireComponent(typeof(Collider2D))]
 public class Point : MonoBehaviour
 {
+    /// <summary>
+    /// 衝突相手から離れる向きに加速度を加える 2D ポイント挙動。
+    /// 対称適用が有効な場合は相手側にも等価に作用させます。
+    /// </summary>
     [Header("Force Settings")]
     [Tooltip("相手から離れる加速度の大きさ（m/s^2）")]
     public float acceleration = 8f;
@@ -18,8 +22,12 @@ public class Point : MonoBehaviour
 
     private Rigidbody2D _rb;
 
+    /// <summary>Rigidbody2D をキャッシュします。</summary>
     void Awake() => _rb = GetComponent<Rigidbody2D>();
 
+    /// <summary>
+    /// 衝突継続中の相手に対して、離れる方向へ加速（力）を与えます。
+    /// </summary>
     void OnCollisionStay2D(Collision2D col)
     {
         var otherRb = col.rigidbody;
@@ -40,8 +48,12 @@ public class Point : MonoBehaviour
         }
     }
 
+    /// <summary>対象レイヤーに含まれる衝突か判定します。</summary>
     bool IsTarget(Collision2D col) => ((1 << col.gameObject.layer) & targetLayers) != 0;
 
+    /// <summary>
+    /// 相手の重心から自分の重心へ向かう正規化ベクトルを返します。
+    /// </summary>
     Vector2 DirectionAwayFromOther(Collision2D col, Rigidbody2D otherRb)
     {
         Vector2 otherCenter = otherRb ? (Vector2)otherRb.worldCenterOfMass : col.collider.bounds.center;

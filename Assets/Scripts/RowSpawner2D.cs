@@ -2,6 +2,11 @@ using UnityEngine;
 using System.Collections;
 
 // 2D 向け：行方向に等間隔でプレハブを複数生成し、移動させる
+/// <summary>
+/// 2D 用：指定間隔で縦/横に並んだ列としてプレハブを複数生成し、
+/// 進行方向に移動させます。ループ生成・速度や角度のランダム化、
+/// 寿命に応じたフェード演出と自動破棄に対応します。
+/// </summary>
 public class RowSpawner2D : MonoBehaviour
 {
     [Header("Prefab & Physics")]
@@ -38,21 +43,27 @@ public class RowSpawner2D : MonoBehaviour
 
     private Coroutine _loop;
 
+    /// <summary>起動時に自動ループが有効なら生成ループを開始します。</summary>
     void Start()
     {
         if (playOnStart) _loop = StartCoroutine(SpawnLoop());
     }
 
+    /// <summary>生成ループを開始します（多重開始はしません）。</summary>
     public void StartLoop()
     {
         if (_loop == null) _loop = StartCoroutine(SpawnLoop());
     }
 
+    /// <summary>生成ループを停止します。</summary>
     public void StopLoop()
     {
         if (_loop != null) { StopCoroutine(_loop); _loop = null; }
     }
 
+    /// <summary>
+    /// 一定間隔ごとに 1 列分を生成するループ。
+    /// </summary>
     IEnumerator SpawnLoop()
     {
         var wait = new WaitForSeconds(interval);
@@ -63,6 +74,9 @@ public class RowSpawner2D : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 現在の設定に基づき 1 列分のプレハブを生成します。
+    /// </summary>
     void SpawnRow()
     {
         if (!prefab) { Debug.LogWarning("Prefab が未設定"); return; }
@@ -82,6 +96,9 @@ public class RowSpawner2D : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 実際に使用する移動方向を算出します（ローカル空間オプション対応）。
+    /// </summary>
     Vector2 ComputeMoveDir()
     {
         var baseDir = (moveDirection == Vector2.zero ? Vector2.right : moveDirection.normalized);
@@ -90,11 +107,15 @@ public class RowSpawner2D : MonoBehaviour
         return new Vector2(dm.x, dm.y).normalized;
     }
 
+    /// <summary>列方向（ローカルの up かワールド up）を返します。</summary>
     Vector2 ComputeRowDir()
     {
         return useLocalSpace ? (Vector2)transform.up : Vector2.up;
     }
 
+    /// <summary>
+    /// 1 体の生成と初期速度設定、寿命設定を行います。
+    /// </summary>
     void SpawnOne(Vector3 position, Vector2 dirMove)
     {
         var go = Instantiate(prefab, position, Quaternion.identity);
@@ -118,6 +139,9 @@ public class RowSpawner2D : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 速度の大きさと方向を（必要に応じてランダム化して）計算します。
+    /// </summary>
     (Vector2 dir, float speed) ComputeVelocityDirectionAndSpeed(Vector2 dirMove)
     {
         if (!randomizeVelocity) return (dirMove, speed);
@@ -138,6 +162,7 @@ public class RowSpawner2D : MonoBehaviour
     }
 
 #if UNITY_EDITOR
+    /// <summary>エディタ上で列の位置と移動方向を可視化します。</summary>
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.cyan;
