@@ -16,8 +16,7 @@ public class MaterialOperations : MonoBehaviour
     private SpriteRenderer _renderer;
     private MaterialPropertyBlock _block;
 
-    // Emission property
-    private static readonly int PropEmissionColor = Shader.PropertyToID("_EmissionColor");
+    // Emission property (shared)
     private Color _baseEmissionColor;   // ベースの Emission 色
     private Color _unitEmissionColor;   // 単位強度(=1)の色
     private float _baseIntensity;       // ベース強度（RGB の最大）
@@ -42,7 +41,7 @@ public class MaterialOperations : MonoBehaviour
 
         // ベースの Emission と単位色を記録
         var mat = _renderer.sharedMaterial;
-        var ec0 = mat.GetColor(PropEmissionColor);
+        var ec0 = mat.GetColor(EmissionColorUtil.PropEmissionColor);
         _baseEmissionColor = ec0;
         _baseIntensity = Mathf.Max(Mathf.Max(ec0.r, ec0.g), ec0.b);
         _unitEmissionColor = _baseIntensity > 0f ? (ec0 / Mathf.Max(_baseIntensity, 1e-6f)) : ec0;
@@ -62,7 +61,7 @@ public class MaterialOperations : MonoBehaviour
                 float curIntensity = _baseIntensity * scale;
                 var ec = _unitEmissionColor * curIntensity;
                 EnsureBlock();
-                _block.SetColor(PropEmissionColor, ec);
+                _block.SetColor(EmissionColorUtil.PropEmissionColor, ec);
                 _renderer.SetPropertyBlock(_block);
             }
 
@@ -85,7 +84,7 @@ public class MaterialOperations : MonoBehaviour
             _unitEmissionColor = _baseIntensity > 0f ? (newEmissionColor / Mathf.Max(_baseIntensity, 1e-6f)) : newEmissionColor;
 
             EnsureBlock();
-            _block.SetColor(PropEmissionColor, newEmissionColor);
+            _block.SetColor(EmissionColorUtil.PropEmissionColor, newEmissionColor);
             _renderer.SetPropertyBlock(_block);
         }
 
@@ -94,12 +93,12 @@ public class MaterialOperations : MonoBehaviour
         if (psRenderers != null && psRenderers.Length > 0)
         {
             var tmpBlock = new MaterialPropertyBlock();
-            tmpBlock.SetColor(PropEmissionColor, newEmissionColor);
+            tmpBlock.SetColor(EmissionColorUtil.PropEmissionColor, newEmissionColor);
             foreach (var psr in psRenderers)
             {
                 if (!psr) continue;
                 var mat = psr.sharedMaterial;
-                if (mat && mat.shader && mat.HasProperty(PropEmissionColor))
+                if (mat && mat.shader && mat.HasProperty(EmissionColorUtil.PropEmissionColor))
                 {
                     psr.SetPropertyBlock(tmpBlock);
                 }
@@ -115,7 +114,7 @@ public class MaterialOperations : MonoBehaviour
         // 無効化時に Emission を元へ戻す
         if (!_renderer) return;
         EnsureBlock();
-        _block.SetColor(PropEmissionColor, _baseEmissionColor);
+        _block.SetColor(EmissionColorUtil.PropEmissionColor, _baseEmissionColor);
         _renderer.SetPropertyBlock(_block);
     }
 
@@ -126,8 +125,7 @@ public class MaterialOperations : MonoBehaviour
     private bool TryInitTarget()
     {
         if (!_renderer) _renderer = GetComponent<SpriteRenderer>();
-        var mat = _renderer ? _renderer.sharedMaterial : null;
-        return mat && mat.shader && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty(PropEmissionColor);
+        return EmissionColorUtil.Supports(_renderer);
     }
 
     /// <summary>MaterialPropertyBlock を遅延生成します。</summary>

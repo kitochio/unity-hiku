@@ -393,13 +393,5 @@ public class GameDirector : MonoBehaviour
     /// <param name="color">取得した色（成功時）</param>
     /// <returns>取得できた場合 true</returns>
     private static bool TryGetCurrentEmissionColor(GameObject go, out Color color)
-    {
-        color = default;
-        var sr = go != null ? go.GetComponent<SpriteRenderer>() : null;
-        var mat = sr ? sr.sharedMaterial : null;
-        if (!(mat != null && mat.shader != null && mat.shader.name == "Particles/Standard Unlit" && mat.HasProperty("_EmissionColor")))
-            return false;
-        color = mat.GetColor("_EmissionColor");
-        return true;
-    }
+        => EmissionColorUtil.TryGetCurrent(go, out color);
 }

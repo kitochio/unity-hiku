@@ -81,7 +81,7 @@ public class SavedLineVisualizer : MonoBehaviour
         {
             DrawContinuousLine();
             if (enableCollision) UpdateCollidersForContinuousLine();
-            else { DisableAllSegmentColliders(); EnsureSegmentCount(0); }
+            else { DisableAllSegmentColliders(); EnsureSegmentCountPooled(0); }
         }
         else
         {
@@ -145,7 +145,7 @@ public class SavedLineVisualizer : MonoBehaviour
     {
         if (useGappedSegments)
         {
-            EnsureSegmentCount(0);
+            EnsureSegmentCountPooled(0);
         }
         else
         {
@@ -161,7 +161,7 @@ public class SavedLineVisualizer : MonoBehaviour
     {
         int n = _buf.Count;
         int segCount = Mathf.Max(0, n - 1);
-        EnsureSegmentCount(segCount);
+        EnsureSegmentCountPooled(segCount);
 
         float z = z2D;
 
@@ -209,7 +209,7 @@ public class SavedLineVisualizer : MonoBehaviour
     {
         int n = _buf.Count;
         int segCount = Mathf.Max(0, n - 1);
-        EnsureSegmentCount(segCount);
+        EnsureSegmentCountPooled(segCount);
 
         float z = z2D;
         for (int i = 0; i < segCount; i++)
@@ -455,5 +455,37 @@ public class SavedLineVisualizer : MonoBehaviour
         dst.probeAnchor = src.probeAnchor;
         dst.sortingLayerID = src.sortingLayerID;
         dst.sortingOrder = src.sortingOrder;
+    }
+
+    // 簡易プールつきのセグメント確保
+    void EnsureSegmentCountPooled(int count)
+    {
+        // 余剰は破棄せず非表示＋コライダー無効化
+        for (int i = _segments.Count - 1; i >= count; i--)
+        {
+            var seg = _segments[i];
+            if (!seg) continue;
+            seg.positionCount = 0;
+            seg.enabled = false;
+            DisableCollidersOn(seg.gameObject);
+        }
+
+        // 不足分は作成／既存は有効化
+        for (int i = 0; i < count; i++)
+        {
+            if (i < _segments.Count)
+            {
+                var seg = _segments[i];
+                if (seg) seg.enabled = true;
+                continue;
+            }
+
+            var go = new GameObject($"Segment_{i}");
+            go.transform.SetParent(this.transform, worldPositionStays: false);
+            var segNew = go.AddComponent<LineRenderer>();
+            CopyLineSettings(lr, segNew);
+            segNew.positionCount = 0;
+            _segments.Add(segNew);
+        }
     }
 }

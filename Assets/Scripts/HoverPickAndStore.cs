@@ -21,7 +21,7 @@ public class HoverPickAndStore : MonoBehaviour
 
     [Header("Store settings")]
     [Range(1, 20)] public int capacity = 3;
-    public IReadOnlyCollection<GameObject> SavedObjects => _queue;
+    public IReadOnlyCollection<GameObject> SavedObjects => _store.Items;
 
     [Header("Audio")]
     [Tooltip("キューに追加成功時に鳴らす音")]
@@ -31,8 +31,8 @@ public class HoverPickAndStore : MonoBehaviour
     [SerializeField] private AudioSource sfxSource;
 
     // 内部状態
-    private readonly Queue<GameObject> _queue = new();
-    private readonly HashSet<int> _ids = new();
+    private readonly SavedObjectStore _store = new();
+    private PlacementValidator2D _validator;
 
     // GameDirector の経過時間に応じて capacity を増やす
     private const int CapacityStart = 3;
@@ -41,10 +41,14 @@ public class HoverPickAndStore : MonoBehaviour
     [SerializeField] private GameDirector gameDirector;
 
     // 幾何用の定数
-    const float EPS = 1e-7f;
+    
 
     // 交差判定用バッファ（最新順で capacity 件まで）
-    private readonly List<Vector2> _pts = new();
+    
+    void Awake()
+    {
+        _validator = new PlacementValidator2D(_store);
+    }
 
     /// <summary>
     /// 毎フレーム、破棄済み要素のクリーンアップ、マウス下オブジェクトの取得、
@@ -76,9 +80,7 @@ public class HoverPickAndStore : MonoBehaviour
     GameObject GetObjectUnderMouse2D()
     {
         var screen = Mouse.current.position.ReadValue();
-        var ray = Camera.main.ScreenPointToRay(screen);
-        var hit = Physics2D.GetRayIntersection(ray, Mathf.Infinity, layerMask);
-        return hit.collider ? hit.collider.gameObject : null;
+        return ObjectPicker2D.GetUnderMouse2D(Camera.main, screen, layerMask);
     }
 
     // 型フィルタに一致するか
@@ -99,16 +101,13 @@ public class HoverPickAndStore : MonoBehaviour
     /// <returns>追加できた場合 true</returns>
     bool TryEnqueue(GameObject go)
     {
-        int id = go.GetInstanceID();
-        if (_ids.Contains(id)) return false;
+        if (!go) return false;
+        if (_store.Contains(go)) return false;
 
         var pos = go.transform.position;
         if (!CanPlaceNextPoint(new Vector2(pos.x, pos.y))) return false;
 
-        EvictIfFull();
-
-        _queue.Enqueue(go);
-        _ids.Add(id);
+        _store.EnqueueWithEviction(go, capacity);
         LogSavedDetails();
         PlayEnqueueSfx();
         return true;
@@ -118,13 +117,7 @@ public class HoverPickAndStore : MonoBehaviour
     /// <summary>
     /// capacity を超える場合に最古の要素を取り除きます。
     /// </summary>
-    void EvictIfFull()
-    {
-        if (_queue.Count < capacity) return;
-
-        var old = _queue.Dequeue();
-        if (old != null) _ids.Remove(old.GetInstanceID());
-    }
+    void EvictIfFull() { /* handled by SavedObjectStore */ }
 
     // 動的に capacity を更新（GameDirector の経過時間に応じて）
     /// <summary>
@@ -134,16 +127,7 @@ public class HoverPickAndStore : MonoBehaviour
     {
         if (gameDirector == null)
             gameDirector = FindFirstObjectByType<GameDirector>();
-
-        int target = CapacityStart;
-        if (gameDirector != null)
-        {
-            float elapsed = gameDirector.ElapsedTime;
-            int inc = Mathf.FloorToInt(elapsed / SecondsPerIncrease);
-            target = Mathf.Clamp(CapacityStart + inc, CapacityStart, CapacityMax);
-        }
-
-        capacity = target;
+        capacity = CapacityPolicy.Compute(gameDirector, CapacityStart, CapacityMax, SecondsPerIncrease);
     }
 
     // 破棄済み（Destroy 済み）オブジェクトをキューから取り除く
@@ -152,30 +136,11 @@ public class HoverPickAndStore : MonoBehaviour
     /// </summary>
     void CleanupDead()
     {
-        if (_queue.Count == 0) return;
-
-        int n = _queue.Count;
-        bool removed = false;
-
-        for (int i = 0; i < n; i++)
+        _store.CleanupDestroyed(() =>
         {
-            var go = _queue.Dequeue();
-            if (!go)
-            {
-                removed = true;
-                continue;
-            }
-            _queue.Enqueue(go);
-        }
-
-        if (removed)
-        {
-            _ids.Clear();
-            foreach (var go in _queue)
-                if (go) _ids.Add(go.GetInstanceID());
             Debug.Log("Removed destroyed objects from saved list.");
             LogSavedDetails();
-        }
+        });
     }
 
     // GameObject が指定された型名のコンポーネントを持つか
@@ -194,10 +159,10 @@ public class HoverPickAndStore : MonoBehaviour
     /// </summary>
     public void LogSavedDetails()
     {
-        var arr = _queue.ToArray();
-        for (int i = 0; i < arr.Length; i++)
+        var list = new List<GameObject>(_store.Items);
+        for (int i = 0; i < list.Count; i++)
         {
-            var go = arr[i];
+            var go = list[i];
             if (!go)
             {
                 Debug.Log($"[{i}] (null) destroyed");
@@ -218,72 +183,29 @@ public class HoverPickAndStore : MonoBehaviour
     /// </summary>
     bool CanPlaceNextPoint(Vector2 q)
     {
-        RebuildRecentPoints();
-        if (_pts.Count < 2) return true;
-
-        Vector2 pn = _pts[_pts.Count - 1];
-
-        for (int i = 0; i < _pts.Count - 2; i++)
-        {
-            Vector2 a = _pts[i];
-            Vector2 b = _pts[i + 1];
-            if (SegmentsIntersect(a, b, pn, q))
-                return false;
-        }
-        return true;
+        return _validator != null ? _validator.CanPlaceNext(q, capacity) : true;
     }
 
     // 現在のキューから最大 capacity 件までの 2D 点列を作成（先頭が古い順）
     /// <summary>
     /// 現在のキューから最大 capacity までの2D点列を作成します（先頭が最古）。
     /// </summary>
-    void RebuildRecentPoints()
-    {
-        _pts.Clear();
-        foreach (var go in _queue)
-        {
-            if (_pts.Count >= capacity) break;
-            if (!go) continue;
-
-            Vector3 pos = go.transform.position;
-            _pts.Add(new Vector2(pos.x, pos.y));
-        }
-    }
+    void RebuildRecentPoints() { /* moved to SavedObjectStore/PlacementValidator2D */ }
 
     // 2D 線分同士の交差判定（厳密めの境界含む） -------------------------
     /// <summary>
     /// 2D 線分 p1-p2 と p3-p4 が交差するかを判定します（端点含む）。
     /// </summary>
     static bool SegmentsIntersect(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4)
-    {
-        float d1 = Cross(p4 - p3, p1 - p3);
-        float d2 = Cross(p4 - p3, p2 - p3);
-        float d3 = Cross(p2 - p1, p3 - p1);
-        float d4 = Cross(p2 - p1, p4 - p1);
-
-        if (((d1 > EPS && d2 < -EPS) || (d1 < -EPS && d2 > EPS)) &&
-            ((d3 > EPS && d4 < -EPS) || (d3 < -EPS && d4 > EPS)))
-            return true;
-
-        if (Mathf.Abs(d1) <= EPS && OnSegment(p3, p4, p1)) return true;
-        if (Mathf.Abs(d2) <= EPS && OnSegment(p3, p4, p2)) return true;
-        if (Mathf.Abs(d3) <= EPS && OnSegment(p1, p2, p3)) return true;
-        if (Mathf.Abs(d4) <= EPS && OnSegment(p1, p2, p4)) return true;
-
-        return false;
-    }
+        => Geometry2D.SegmentsIntersect(p1, p2, p3, p4);
 
     /// <summary>2D 外積の z 成分（スカラー）</summary>
-    static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
+    static float Cross(Vector2 a, Vector2 b) => Geometry2D.Cross(a, b);
 
     /// <summary>
     /// 点 p が線分 a-b 上（端点を含む）にあるかを判定します。
     /// </summary>
-    static bool OnSegment(Vector2 a, Vector2 b, Vector2 p)
-    {
-        return p.x >= Mathf.Min(a.x, b.x) - EPS && p.x <= Mathf.Max(a.x, b.x) + EPS &&
-               p.y >= Mathf.Min(a.y, b.y) - EPS && p.y <= Mathf.Max(a.y, b.y) + EPS;
-    }
+    static bool OnSegment(Vector2 a, Vector2 b, Vector2 p) => Geometry2D.OnSegment(a, b, p);
 
     // Public wrapper for external preview checks
     /// <summary>
@@ -297,12 +219,7 @@ public class HoverPickAndStore : MonoBehaviour
     void PlayEnqueueSfx()
     {
         var gd = gameDirector != null ? gameDirector : FindFirstObjectByType<GameDirector>();
-        if (gd == null || gd.State != GameDirector.GameState.Playing) return;
-
         var src = sfxSource != null ? sfxSource : GetComponent<AudioSource>();
-        if (src != null && enqueueSfx != null)
-        {
-            src.PlayOneShot(enqueueSfx, enqueueSfxVolume);
-        }
+        SfxOneShotGate.PlayIfAllowed(gd, src, enqueueSfx, enqueueSfxVolume);
     }
 }
