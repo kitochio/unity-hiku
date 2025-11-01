@@ -62,15 +62,35 @@ public class MaterialOperations : MonoBehaviour
     // 現在の Emission 色を即時に設定（Begin の見た目更新にも利用）
     public void SetEmissionColor(Color newEmissionColor)
     {
-        if (!TryInitTarget()) return;
+        // Update local SpriteRenderer if available
+        bool hasTarget = TryInitTarget();
+        if (hasTarget)
+        {
+            _baseEmissionColor = newEmissionColor;
+            _baseIntensity = Mathf.Max(Mathf.Max(newEmissionColor.r, newEmissionColor.g), newEmissionColor.b);
+            _unitEmissionColor = _baseIntensity > 0f ? (newEmissionColor / Mathf.Max(_baseIntensity, 1e-6f)) : newEmissionColor;
 
-        _baseEmissionColor = newEmissionColor;
-        _baseIntensity = Mathf.Max(Mathf.Max(newEmissionColor.r, newEmissionColor.g), newEmissionColor.b);
-        _unitEmissionColor = _baseIntensity > 0f ? (newEmissionColor / Mathf.Max(_baseIntensity, 1e-6f)) : newEmissionColor;
+            EnsureBlock();
+            _block.SetColor(PropEmissionColor, newEmissionColor);
+            _renderer.SetPropertyBlock(_block);
+        }
 
-        EnsureBlock();
-        _block.SetColor(PropEmissionColor, newEmissionColor);
-        _renderer.SetPropertyBlock(_block);
+        // Also apply to all descendant ParticleSystemRenderers
+        var psRenderers = GetComponentsInChildren<ParticleSystemRenderer>(true);
+        if (psRenderers != null && psRenderers.Length > 0)
+        {
+            var tmpBlock = new MaterialPropertyBlock();
+            tmpBlock.SetColor(PropEmissionColor, newEmissionColor);
+            foreach (var psr in psRenderers)
+            {
+                if (!psr) continue;
+                var mat = psr.sharedMaterial;
+                if (mat && mat.shader && mat.HasProperty(PropEmissionColor))
+                {
+                    psr.SetPropertyBlock(tmpBlock);
+                }
+            }
+        }
     }
 
     private void OnDisable()
