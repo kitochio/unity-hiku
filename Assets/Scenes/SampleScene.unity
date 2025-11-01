@@ -1084,6 +1084,7 @@ MonoBehaviour:
   colliderThickness: 0.2
   colliderIsTrigger: 0
   showPreviewToMouse: 1
+  enablePreviewCollision: 0
   disablePreviewOnGameOver: 1
   gameDirector: {fileID: 0}
 --- !u!120 &1239024579
@@ -1112,7 +1113,7 @@ LineRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 874af59c2c1da9a47b5fe51dba6c6dd2, type: 2}
+  - {fileID: 2100000, guid: edab0c1eee994c54fb920d75bf352059, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1186,14 +1187,14 @@ LineRenderer:
     numCornerVertices: 0
     numCapVertices: 0
     alignment: 0
-    textureMode: 0
+    textureMode: 4
     textureScale: {x: 1, y: 1}
     shadowBias: 0.5
     generateLightingData: 0
   m_MaskInteraction: 0
   m_UseWorldSpace: 1
   m_Loop: 0
-  m_ApplyActiveColorSpace: 1
+  m_ApplyActiveColorSpace: 0
 --- !u!4 &1239024580
 Transform:
   m_ObjectHideFlags: 0
@@ -1659,18 +1660,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   prefab: {fileID: 6999375566086380555, guid: 9feb43a19999289438a99e320317a0f0, type: 3}
-  speed: 1
+  speed: 0.5
   moveDirection: {x: 1, y: 0}
-  lifeTime: 10
+  lifeTime: 17
   useLocalSpace: 1
   randomizeVelocity: 1
   speedMin: 0.5
-  speedMax: 2
+  speedMax: 1
   angleOffsetMinDeg: -15
   angleOffsetMaxDeg: 15
   count: 6
   spacing: 1.5
-  spawnProbability: 0.5
+  spawnProbability: 0.23
   useRandomSpawn: 1
   interval: 1.5
   playOnStart: 1
@@ -1684,7 +1685,7 @@ Transform:
   m_GameObject: {fileID: 1912075074}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: -1, w: 0}
-  m_LocalPosition: {x: 6.83, y: 5.27, z: 0}
+  m_LocalPosition: {x: 6.59, y: 4.8, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

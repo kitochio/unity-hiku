@@ -325,6 +325,15 @@ public class GameDirector : MonoBehaviour
             }
         }
 
+        // Build previous id set to detect newly added objects
+        var prevIds = new System.Collections.Generic.HashSet<int>();
+        for (int i = 0; i < _prevSavedObjects.Count; i++)
+        {
+            var pgo = _prevSavedObjects[i];
+            if (pgo == null) continue;
+            prevIds.Add(pgo.GetInstanceID());
+        }
+
         for (int i = 0; i < objs.Count; i++)
         {
             var go = objs[i];
@@ -346,15 +355,20 @@ public class GameDirector : MonoBehaviour
             {
                 m.SetEmissionColor(isLast ? ColorLast : ColorOther);
             }
-            // In list: play child ParticleSystems
-            var particles = go != null ? go.GetComponentsInChildren<ParticleSystem>(true) : null;
-            if (particles != null)
+
+            // Play particles only when newly added to the list
+            bool isNewlyAdded = !prevIds.Contains(id);
+            if (isNewlyAdded)
             {
-                for (int p = 0; p < particles.Length; p++)
+                var particles = go != null ? go.GetComponentsInChildren<ParticleSystem>(true) : null;
+                if (particles != null)
                 {
-                    var ps = particles[p];
-                    if (ps == null) continue;
-                    if (!ps.isPlaying) ps.Play();
+                    for (int p = 0; p < particles.Length; p++)
+                    {
+                        var ps = particles[p];
+                        if (ps == null) continue;
+                        if (!ps.isPlaying) ps.Play();
+                    }
                 }
             }
 
