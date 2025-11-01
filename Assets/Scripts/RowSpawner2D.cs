@@ -13,7 +13,13 @@ public class RowSpawner2D : MonoBehaviour
     [SerializeField, Tooltip("Rigidbody2D + Collider2D を持つプレハブ（Dynamic）")] private GameObject prefab;
     [SerializeField, Tooltip("基準の移動速度（m/s）")] private float speed = 3f;
     [SerializeField, Tooltip("基準の移動方向（ワールド）")] private Vector2 moveDirection = Vector2.right;
-    [SerializeField, Tooltip("生成したオブジェクトの寿命（秒、0 以下は無制限）")] private float lifeTime = 10f;
+    [SerializeField, Tooltip("生成したオブジェクトの寿命（秒、0 以下は無制限、ランダム OFF の時に使用）")] private float lifeTime = 10f;
+    
+    [Header("Randomize LifeTime")]
+    [SerializeField, Tooltip("寿命をランダムに設定する")]
+    private bool randomizeLifeTime = false;
+    [SerializeField, Tooltip("寿命の最小値（秒）")] private float lifeTimeMin = 5f;
+    [SerializeField, Tooltip("寿命の最大値（秒）")] private float lifeTimeMax = 10f;
     [SerializeField, Tooltip("ローカル方向（自分の向き）に合わせる")]
     private bool useLocalSpace = false;
 
@@ -131,11 +137,19 @@ public class RowSpawner2D : MonoBehaviour
             Debug.LogWarning("Prefab に Rigidbody2D がありません");
         }
 
-        if (lifeTime > 0f)
+        float lt = lifeTime;
+        if (randomizeLifeTime)
+        {
+            float lMin = Mathf.Min(lifeTimeMin, lifeTimeMax);
+            float lMax = Mathf.Max(lifeTimeMin, lifeTimeMax);
+            lt = Random.Range(lMin, lMax);
+        }
+
+        if (lt > 0f)
         {
             var fx = go.GetComponent<MaterialOperations>() ?? go.AddComponent<MaterialOperations>();
-            fx.Begin(lifeTime);
-            Destroy(go, lifeTime);
+            fx.Begin(lt);
+            Destroy(go, lt);
         }
     }
 

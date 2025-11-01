@@ -1662,18 +1662,21 @@ MonoBehaviour:
   prefab: {fileID: 6999375566086380555, guid: 9feb43a19999289438a99e320317a0f0, type: 3}
   speed: 0.5
   moveDirection: {x: 1, y: 0}
-  lifeTime: 17
+  lifeTime: 10
+  randomizeLifeTime: 1
+  lifeTimeMin: 7
+  lifeTimeMax: 10
   useLocalSpace: 1
   randomizeVelocity: 1
   speedMin: 0.5
-  speedMax: 1
+  speedMax: 1.5
   angleOffsetMinDeg: -15
   angleOffsetMaxDeg: 15
   count: 6
   spacing: 1.5
-  spawnProbability: 0.23
+  spawnProbability: 0.4
   useRandomSpawn: 1
-  interval: 1.5
+  interval: 0.5
   playOnStart: 1
   randomSmallJitter: 1
 --- !u!4 &1912075076
