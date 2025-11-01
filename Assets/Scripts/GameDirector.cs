@@ -309,6 +309,18 @@ public class GameDirector : MonoBehaviour
                         }
                         _originalEmissionById.Remove(pid);
                     }
+                    // Removed from list: stop child ParticleSystems
+                    var prevParticles = prev.GetComponentsInChildren<ParticleSystem>(true);
+                    for (int p = 0; p < prevParticles.Length; p++)
+                    {
+                        var ps = prevParticles[p];
+                        if (ps == null) continue;
+                        if (ps.isPlaying)
+                        {
+                            ps.Stop(true);
+                            ps.Clear(true);
+                        }
+                    }
                 }
             }
         }
@@ -333,6 +345,17 @@ public class GameDirector : MonoBehaviour
             if (m != null)
             {
                 m.SetEmissionColor(isLast ? ColorLast : ColorOther);
+            }
+            // In list: play child ParticleSystems
+            var particles = go != null ? go.GetComponentsInChildren<ParticleSystem>(true) : null;
+            if (particles != null)
+            {
+                for (int p = 0; p < particles.Length; p++)
+                {
+                    var ps = particles[p];
+                    if (ps == null) continue;
+                    if (!ps.isPlaying) ps.Play();
+                }
             }
 
             // 破棄時パーティクル: 最後の要素のみ ON、それ以外は OFF

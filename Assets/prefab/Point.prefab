@@ -32,7 +32,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
+  m_LocalScale: {x: 0.08, y: 0.08, z: 0.08}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 5066987101359653674}
@@ -215,7 +215,39 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 46324494806735664, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
       propertyPath: playOnAwake
-      value: 1
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 46324494806735664, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
+      propertyPath: SizeModule.curve.maxCurve.m_Curve.Array.data[0].time
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 46324494806735664, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
+      propertyPath: SizeModule.curve.maxCurve.m_Curve.Array.data[1].time
+      value: 0.29083282
+      objectReference: {fileID: 0}
+    - target: {fileID: 46324494806735664, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
+      propertyPath: SizeModule.curve.maxCurve.m_Curve.Array.data[0].value
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 46324494806735664, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
+      propertyPath: SizeModule.curve.maxCurve.m_Curve.Array.data[1].value
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 46324494806735664, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
+      propertyPath: SizeModule.curve.maxCurve.m_Curve.Array.data[2].value
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 46324494806735664, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
+      propertyPath: SizeModule.curve.maxCurve.m_Curve.Array.data[2].inSlope
+      value: 0.73515457
+      objectReference: {fileID: 0}
+    - target: {fileID: 46324494806735664, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
+      propertyPath: SizeModule.curve.maxCurve.m_Curve.Array.data[2].inWeight
+      value: 0.55762225
+      objectReference: {fileID: 0}
+    - target: {fileID: 46324494806735664, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
+      propertyPath: SizeModule.curve.maxCurve.m_Curve.Array.data[2].outSlope
+      value: 0.73515457
       objectReference: {fileID: 0}
     - target: {fileID: 1719803152857605096, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
       propertyPath: m_LocalPosition.x
@@ -263,11 +295,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6830939135250135360, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
       propertyPath: playOnAwake
-      value: 1
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6830939135250135360, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
+      propertyPath: SizeModule.curve.scalar
+      value: 0.8
       objectReference: {fileID: 0}
     - target: {fileID: 8645434651225091436, guid: a56e4815853cfcc4d9dc70c991abfd76, type: 3}
       propertyPath: playOnAwake
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
