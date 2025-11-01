@@ -41,11 +41,12 @@ public class SavedLineVisualizer : MonoBehaviour
     private readonly List<LineRenderer> _segments = new();
 
     [Header("Preview To Mouse")]
-    [Tooltip("���݂̃}�E�X�ʒu�ւ̉E�Z�O�����g��")] public bool showPreviewToMouse = true;
+    [Tooltip("現在のマウス位置へのプレビュー線を表示")] public bool showPreviewToMouse = true;
     private LineRenderer _preview;
+    [Tooltip("Preview line collision only ON/OFF")] public bool enablePreviewCollision = false;
 
     [Header("Game State")]
-    [SerializeField, Tooltip("GameOver �̎��Ƀv���r���[�� OFF �ɂ���")] private bool disablePreviewOnGameOver = true;
+    [SerializeField, Tooltip("GameOver の際にプレビューを OFF にする")] private bool disablePreviewOnGameOver = true;
     [SerializeField] private GameDirector gameDirector;
 
     // 2 点未満は線が引けない
@@ -308,7 +309,7 @@ public class SavedLineVisualizer : MonoBehaviour
         foreach (var c in go.GetComponents<Collider2D>()) c.enabled = false;
     }
 
-    // ���݂̃}�E�X�ʒu�ւ̉E�`��/�R���W����
+    // 現在のマウス位置へのプレビュー描画／ロジック
     /// <summary>
     /// 最新点からマウス方向へのプレビュー線を描きます（交差不可はストアのロジックを利用）。
     /// </summary>
@@ -349,7 +350,7 @@ public class SavedLineVisualizer : MonoBehaviour
             _preview.positionCount = 2;
             _preview.SetPosition(0, a);
             _preview.SetPosition(1, b);
-            if (enableCollision) UpdateColliderOnSegment(_preview.gameObject, a, b); else DisableCollidersOn(_preview.gameObject);
+            if (enablePreviewCollision) UpdateColliderOnSegment(_preview.gameObject, a, b); else DisableCollidersOn(_preview.gameObject);
             return;
         }
 
@@ -367,7 +368,7 @@ public class SavedLineVisualizer : MonoBehaviour
         _preview.positionCount = 2;
         _preview.SetPosition(0, start);
         _preview.SetPosition(1, end);
-        if (enableCollision) UpdateColliderOnSegment(_preview.gameObject, start, end); else DisableCollidersOn(_preview.gameObject);
+        if (enablePreviewCollision) UpdateColliderOnSegment(_preview.gameObject, start, end); else DisableCollidersOn(_preview.gameObject);
     }
 
     /// <summary>プレビュー線を非表示にします。</summary>
@@ -391,7 +392,7 @@ public class SavedLineVisualizer : MonoBehaviour
         _preview.positionCount = 0;
     }
 
-    // Camera �̃��C���� z2D �A���t�@�x�b�g�ł̃}�E�X�ʒu
+    // Camera のレイと z=z2D 平面の交点からのマウス位置
     /// <summary>
     /// カメラからの Ray と平面 z=z2D の交点を求め、マウス位置のワールド座標を取得します。
     /// </summary>
